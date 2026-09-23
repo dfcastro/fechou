@@ -1,12 +1,13 @@
 <?php
 
+use App\Support\BrazilianInput;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Editar orçamento | Fechou')] class extends Component
+new #[Title('Editar proposta | Fechou')] class extends Component
 {
     public int $quoteId;
     public int $quoteNumber;
@@ -36,7 +37,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
 
     /*
     |--------------------------------------------------------------------------
-    | Orçamento
+    | Proposta
     |--------------------------------------------------------------------------
     */
 
@@ -90,7 +91,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
         abort_if(
             $quoteModel->status !== 'draft',
             403,
-            'Apenas orçamentos em rascunho podem ser editados.'
+            'Apenas propostas em rascunho podem ser editadas.'
         );
 
         $this->quoteId = $quoteModel->id;
@@ -242,9 +243,18 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
 
     public function saveNewClient(): void
     {
-        abort_unless($this->business, 403);
+        /* FECHOU: NORMALIZAÇÃO DE CAMPOS */
+        $this->newClientDocument =
+            BrazilianInput::document(
+                $this->newClientDocument
+            ) ?? '';
 
-        $validated = $this->validate([
+        $this->newClientWhatsapp =
+            BrazilianInput::phone(
+                $this->newClientWhatsapp
+            ) ?? '';
+
+$validated = $this->validate([
             'newClientName' => [
                 'required',
                 'string',
@@ -399,8 +409,48 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
         ]);
     }
 
+    public function itemUnitOptions(): array
+    {
+        return match ($this->itemType) {
+            'service' => [
+                'serviço' => 'Serviço',
+                'hora' => 'Hora',
+                'dia' => 'Dia',
+                'un' => 'Unidade',
+                'm' => 'Metro',
+                'm²' => 'Metro quadrado',
+                'm³' => 'Metro cúbico',
+            ],
+            'material' => [
+                'un' => 'Unidade',
+                'm' => 'Metro',
+                'm²' => 'Metro quadrado',
+                'm³' => 'Metro cúbico',
+                'kg' => 'Quilograma',
+                'l' => 'Litro',
+                'pct' => 'Pacote',
+                'cx' => 'Caixa',
+            ],
+            default => [
+                'un' => 'Unidade',
+                'serviço' => 'Serviço',
+                'hora' => 'Hora',
+                'dia' => 'Dia',
+                'm' => 'Metro',
+                'm²' => 'Metro quadrado',
+                'm³' => 'Metro cúbico',
+                'kg' => 'Quilograma',
+                'l' => 'Litro',
+                'pct' => 'Pacote',
+                'cx' => 'Caixa',
+            ],
+        };
+    }
+
     public function saveItem(): void
     {
+        $allowedUnits = array_keys($this->itemUnitOptions());
+
         $validated = $this->validate([
             'itemType' => [
                 'required',
@@ -423,6 +473,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                 'required',
                 'string',
                 'max:20',
+                'in:' . implode(',', $allowedUnits),
             ],
 
             'itemUnitPrice' => [
@@ -440,11 +491,23 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
             'itemQuantity.gt' =>
                 'A quantidade deve ser maior que zero.',
 
+            'itemQuantity.numeric' =>
+                'Informe uma quantidade válida.',
+
             'itemUnit.required' =>
                 'Informe a unidade.',
 
+            'itemUnit.in' =>
+                'Selecione uma unidade compatível com o tipo do item.',
+
             'itemUnitPrice.required' =>
                 'Informe o valor unitário.',
+
+            'itemUnitPrice.numeric' =>
+                'Informe um valor unitário válido.',
+
+            'itemUnitPrice.min' =>
+                'O valor unitário não pode ser negativo.',
         ]);
 
         $item = [
@@ -605,7 +668,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
         abort_if(
             $quote->status !== 'draft',
             403,
-            'Este orçamento já foi enviado e não pode mais ser alterado.'
+            'Esta proposta já foi enviada e não pode mais ser alterada.'
         );
 
         $validated = $this->validate([
@@ -629,6 +692,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
             'validUntil' => [
                 'nullable',
                 'date',
+                'after_or_equal:today',
             ],
 
             'discount' => [
@@ -682,13 +746,37 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                 'Selecione um cliente.',
 
             'title.required' =>
-                'Informe o título do orçamento.',
+                'Informe o título da proposta.',
 
             'items.required' =>
                 'Adicione pelo menos um item.',
 
             'items.min' =>
                 'Adicione pelo menos um item.',
+
+            'clientId.integer' =>
+                'Selecione um cliente válido.',
+
+            'title.max' =>
+                'O título pode ter no máximo 255 caracteres.',
+
+            'description.max' =>
+                'A descrição pode ter no máximo 5.000 caracteres.',
+
+            'validUntil.date' =>
+                'Informe uma data de validade válida.',
+
+            'validUntil.after_or_equal' =>
+                'A validade não pode estar no passado.',
+
+            'discount.numeric' =>
+                'Informe um desconto válido.',
+
+            'discount.min' =>
+                'O desconto não pode ser negativo.',
+
+            'notes.max' =>
+                'As condições e observações podem ter no máximo 5.000 caracteres.',
         ]);
 
         /*
@@ -793,7 +881,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
 
         session()->flash(
             'success',
-            'Orçamento atualizado com sucesso.'
+            'Proposta atualizada com sucesso.'
         );
 
         return $this->redirect(
@@ -840,7 +928,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                 />
             </svg>
 
-            Voltar para o orçamento
+            Voltar para a proposta
         </a>
 
 
@@ -856,7 +944,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                         dark:text-white
                     "
                 >
-                    Editar orçamento
+                    Editar proposta
                 </h1>
 
 
@@ -887,7 +975,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
 
 
             <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                Altere os dados enquanto o orçamento ainda estiver em rascunho.
+                Altere os dados enquanto a proposta ainda estiver em rascunho.
             </p>
 
         </div>
@@ -966,7 +1054,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                             <div>
 
                                 <h2 class="font-semibold text-zinc-950 dark:text-white">
-                                    Dados do orçamento
+                                    Dados da proposta
                                 </h2>
 
                                 <p class="text-sm text-zinc-500 dark:text-zinc-400">
@@ -1431,7 +1519,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                                                         dark:text-zinc-400
                                                     "
                                                 >
-                                                    Cadastre o cliente sem sair deste orçamento.
+                                                    Cadastre o cliente sem sair desta proposta.
                                                 </p>
 
 
@@ -1570,6 +1658,12 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                                 "
                             >
 
+                                @error('validUntil')
+                                    <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">
+                                        {{ $message }}
+                                    </p>
+                                @enderror
+
                         </div>
 
 
@@ -1607,7 +1701,14 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                                     dark:bg-zinc-950
                                     dark:text-white
                                 "
-                            ></textarea>
+
+                                maxlength="5000"></textarea>
+
+                                @error('description')
+                                    <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">
+                                        {{ $message }}
+                                    </p>
+                                @enderror
 
                         </div>
 
@@ -1855,6 +1956,32 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                             </div>
 
 
+                            {{-- ERROS DO ITEM - EDIT --}}
+                            @if ($errors->hasAny([
+                                'itemDescription',
+                                'itemQuantity',
+                                'itemUnit',
+                                'itemUnitPrice',
+                            ]))
+                                <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-300">
+                                    <p class="font-semibold">Corrija os dados do item</p>
+                                    <ul class="mt-1 space-y-0.5">
+                                        @error('itemDescription')
+                                            <li>• {{ $message }}</li>
+                                        @enderror
+                                        @error('itemQuantity')
+                                            <li>• {{ $message }}</li>
+                                        @enderror
+                                        @error('itemUnit')
+                                            <li>• {{ $message }}</li>
+                                        @enderror
+                                        @error('itemUnitPrice')
+                                            <li>• {{ $message }}</li>
+                                        @enderror
+                                    </ul>
+                                </div>
+                            @endif
+
                             <div class="grid gap-4 lg:grid-cols-12">
 
                                 {{-- DESCRIÇÃO --}}
@@ -1915,7 +2042,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                                             dark:text-zinc-300
                                         "
                                     >
-                                        Quantidade
+                                        Quantidade *
                                     </label>
 
                                     <input
@@ -1924,7 +2051,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                                         min="0.001"
                                         step="0.001"
 
-                                        wire:model.live.debounce.200ms="itemQuantity"
+                                        wire:model="itemQuantity"
 
                                         class="
                                             w-full rounded-lg
@@ -1941,6 +2068,12 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                                             dark:text-white
                                         "
                                     >
+
+                                    @error('itemQuantity')
+                                        <p class="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                                            {{ $message }}
+                                        </p>
+                                    @enderror
 
                                 </div>
 
@@ -1957,39 +2090,32 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                                             dark:text-zinc-300
                                         "
                                     >
-                                        Unidade
+                                        Unidade *
                                     </label>
 
                                     <select
                                         wire:model="itemUnit"
-
                                         class="
                                             w-full rounded-lg
-
                                             border border-zinc-300
                                             bg-white
-
                                             px-3 py-2.5
-
                                             text-sm text-zinc-900
-
                                             dark:border-zinc-700
                                             dark:bg-zinc-900
                                             dark:text-white
                                         "
                                     >
-                                        <option value="un">un</option>
-                                        <option value="serviço">serviço</option>
-                                        <option value="hora">hora</option>
-                                        <option value="dia">dia</option>
-                                        <option value="m">metro</option>
-                                        <option value="m²">m²</option>
-                                        <option value="m³">m³</option>
-                                        <option value="kg">kg</option>
-                                        <option value="l">litro</option>
-                                        <option value="pct">pacote</option>
-                                        <option value="cx">caixa</option>
+                                        @foreach ($this->itemUnitOptions() as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
+                                        @endforeach
                                     </select>
+
+                                    @error('itemUnit')
+                                        <p class="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                                            {{ $message }}
+                                        </p>
+                                    @enderror
 
                                 </div>
 
@@ -2006,7 +2132,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                                             dark:text-zinc-300
                                         "
                                     >
-                                        Valor unitário
+                                        Valor unitário *
                                     </label>
 
                                     <input
@@ -2015,7 +2141,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                                         min="0"
                                         step="0.01"
 
-                                        wire:model.live.debounce.200ms="itemUnitPrice"
+                                        wire:model="itemUnitPrice"
 
                                         class="
                                             w-full rounded-lg
@@ -2031,7 +2157,14 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                                             dark:bg-zinc-900
                                             dark:text-white
                                         "
-                                    >
+                                    inputmode="decimal"
+                                >
+
+                                    @error('itemUnitPrice')
+                                        <p class="mt-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                                            {{ $message }}
+                                        </p>
+                                    @enderror
 
                                 </div>
 
@@ -2135,7 +2268,7 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
 
                                         {{ $editingItemIndex !== null
                                             ? 'Salvar alterações'
-                                            : 'Adicionar ao orçamento'
+                                            : 'Adicionar à proposta'
                                         }}
 
                                     </button>
@@ -2425,6 +2558,12 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                             "
                         ></textarea>
 
+                                @error('notes')
+                                    <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">
+                                        {{ $message }}
+                                    </p>
+                                @enderror
+
                     </div>
 
                 </section>
@@ -2552,7 +2691,14 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                                     dark:bg-zinc-950
                                     dark:text-white
                                 "
-                            >
+                                    inputmode="decimal"
+                                >
+
+                                @error('discount')
+                                    <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">
+                                        {{ $message }}
+                                    </p>
+                                @enderror
 
                         </div>
 
@@ -2954,7 +3100,12 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                                 dark:bg-zinc-950
                                 dark:text-white
                             "
-                        >
+
+                                    data-fechou-mask="phone"
+                                    inputmode="tel"
+                                    maxlength="15"
+                                    autocomplete="tel"
+                                >
 
 
                         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -3006,7 +3157,12 @@ new #[Title('Editar orçamento | Fechou')] class extends Component
                                     dark:bg-zinc-950
                                     dark:text-white
                                 "
-                            >
+
+                                    data-fechou-mask="document"
+                                    inputmode="numeric"
+                                    maxlength="18"
+                                    autocomplete="off"
+                                >
 
                             @error('newClientDocument')
 

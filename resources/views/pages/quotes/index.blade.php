@@ -2,12 +2,27 @@
 
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Url;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-new #[Title('Orçamentos | Fechou')] class extends Component
+new #[Title('Propostas | Fechou')] class extends Component
 {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Filtro de pós-aceite
+    |--------------------------------------------------------------------------
+    */
+
+    #[Url(
+        as: 'post',
+        except: ''
+    )]
+    public string $postAcceptance = '';
+
+
     use WithPagination;
 
     public string $search = '';
@@ -27,7 +42,7 @@ new #[Title('Orçamentos | Fechou')] class extends Component
 
     /*
     |--------------------------------------------------------------------------
-    | Orçamentos
+    | Propostas
     |--------------------------------------------------------------------------
     */
 
@@ -42,6 +57,108 @@ new #[Title('Orçamentos | Fechou')] class extends Component
 
         return $this->business
             ->quotes()
+
+            /*
+             * FILTRO PÓS-ACEITE
+             *
+             * Recebe o parâmetro ?post=...
+             * enviado pelo Dashboard.
+             */
+            ->when(
+                $this->postAcceptance !== '',
+                function ($query) {
+
+                    return match (
+                        $this->postAcceptance
+                    ) {
+
+                        /*
+                         * Todos os negócios aceitos.
+                         */
+                        'closed' =>
+                            $query->where(
+                                'status',
+                                'accepted'
+                            ),
+
+                        /*
+                         * Aceitos ainda não pagos.
+                         */
+                        'receivable' =>
+                            $query
+                                ->where(
+                                    'status',
+                                    'accepted'
+                                )
+                                ->where(
+                                    function ($query) {
+                                        $query
+                                            ->whereNull(
+                                                'payment_status'
+                                            )
+                                            ->orWhere(
+                                                'payment_status',
+                                                '!=',
+                                                'paid'
+                                            );
+                                    }
+                                ),
+
+                        /*
+                         * Aceitos cuja execução
+                         * ainda não começou.
+                         */
+                        'awaiting' =>
+                            $query
+                                ->where(
+                                    'status',
+                                    'accepted'
+                                )
+                                ->where(
+                                    function ($query) {
+                                        $query
+                                            ->whereNull(
+                                                'execution_status'
+                                            )
+                                            ->orWhere(
+                                                'execution_status',
+                                                'pending'
+                                            );
+                                    }
+                                ),
+
+                        /*
+                         * Em execução.
+                         */
+                        'in_progress' =>
+                            $query
+                                ->where(
+                                    'status',
+                                    'accepted'
+                                )
+                                ->where(
+                                    'execution_status',
+                                    'in_progress'
+                                ),
+
+                        /*
+                         * Execução concluída.
+                         */
+                        'completed' =>
+                            $query
+                                ->where(
+                                    'status',
+                                    'accepted'
+                                )
+                                ->where(
+                                    'execution_status',
+                                    'completed'
+                                ),
+
+                        default => $query,
+                    };
+                }
+            )
             ->with([
                 'client',
 
@@ -113,6 +230,33 @@ new #[Title('Orçamentos | Fechou')] class extends Component
             ->orderByDesc('created_at')
             ->paginate(10);
     }
+
+    public function postAcceptanceLabel(): ?string
+    {
+        return match (
+            $this->postAcceptance
+        ) {
+            'closed' =>
+                'Negócios fechados',
+
+            'receivable' =>
+                'A receber',
+
+            'awaiting' =>
+                'Aguardando execução',
+
+            'in_progress' =>
+                'Em execução',
+
+            'completed' =>
+                'Concluídos',
+
+            default =>
+                null,
+        };
+    }
+
+
 
     /*
     |--------------------------------------------------------------------------
@@ -189,15 +333,32 @@ new #[Title('Orçamentos | Fechou')] class extends Component
         $this->resetPage();
     }
 
+
     public function updatedStatus(): void
     {
+        if ($this->status !== '') {
+            $this->postAcceptance = '';
+        }
+
         $this->resetPage();
     }
+
+
+    public function updatedPostAcceptance(): void
+    {
+        if ($this->postAcceptance !== '') {
+            $this->status = '';
+        }
+
+        $this->resetPage();
+    }
+
 
     public function clearFilters(): void
     {
         $this->search = '';
         $this->status = '';
+        $this->postAcceptance = '';
 
         $this->resetPage();
     }
@@ -263,6 +424,7 @@ new #[Title('Orçamentos | Fechou')] class extends Component
         };
     }
 
+
     public function statusClasses(string $status): string
     {
         return match ($status) {
@@ -295,6 +457,271 @@ new #[Title('Orçamentos | Fechou')] class extends Component
                  dark:bg-zinc-800 dark:text-zinc-200',
         };
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ações rápidas do pós-aceite
+    |--------------------------------------------------------------------------
+    */
+
+    public function markAsPaidFromList(
+        int $quoteId
+    ): void {
+        abort_unless(
+            $this->business,
+            403
+        );
+
+        $changed =
+            \Illuminate\Support\Facades\DB::transaction(
+                function () use ($quoteId): bool {
+
+                    $quote = $this
+                        ->business
+                        ->quotes()
+                        ->whereKey($quoteId)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    abort_unless(
+                        $quote->status === 'accepted',
+                        422
+                    );
+
+                    if (
+                        ($quote->payment_status ?? 'pending')
+                        === 'paid'
+                    ) {
+                        return false;
+                    }
+
+                    $quote->update([
+                        'payment_status' => 'paid',
+                        'paid_at' => now(),
+                    ]);
+
+                    $quote->events()->create([
+                        'type' => 'payment_received',
+                        'ip_address' => request()->ip(),
+                        'user_agent' => request()->userAgent(),
+                    ]);
+
+                    return true;
+                }
+            );
+
+        if ($changed) {
+            $this->dispatch(
+                'quote-toast',
+                message:
+                    'Pagamento registrado com sucesso.'
+            );
+        }
+    }
+
+
+    public function startExecutionFromList(
+        int $quoteId
+    ): void {
+        abort_unless(
+            $this->business,
+            403
+        );
+
+        $changed =
+            \Illuminate\Support\Facades\DB::transaction(
+                function () use ($quoteId): bool {
+
+                    $quote = $this
+                        ->business
+                        ->quotes()
+                        ->whereKey($quoteId)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    abort_unless(
+                        $quote->status === 'accepted',
+                        422
+                    );
+
+                    if (
+                        ! in_array(
+                            $quote->execution_status,
+                            [
+                                null,
+                                'pending',
+                            ],
+                            true
+                        )
+                    ) {
+                        return false;
+                    }
+
+                    $quote->update([
+                        'execution_status' =>
+                            'in_progress',
+
+                        'execution_started_at' =>
+                            now(),
+
+                        'completed_at' =>
+                            null,
+                    ]);
+
+                    $quote->events()->create([
+                        'type' => 'execution_started',
+                        'ip_address' => request()->ip(),
+                        'user_agent' => request()->userAgent(),
+                    ]);
+
+                    return true;
+                }
+            );
+
+        if ($changed) {
+            $this->dispatch(
+                'quote-toast',
+                message:
+                    'Execução iniciada.'
+            );
+        }
+    }
+
+
+    public function completeExecutionFromList(
+        int $quoteId
+    ): void {
+        abort_unless(
+            $this->business,
+            403
+        );
+
+        $changed =
+            \Illuminate\Support\Facades\DB::transaction(
+                function () use ($quoteId): bool {
+
+                    $quote = $this
+                        ->business
+                        ->quotes()
+                        ->whereKey($quoteId)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    abort_unless(
+                        $quote->status === 'accepted',
+                        422
+                    );
+
+                    if (
+                        $quote->execution_status
+                        !== 'in_progress'
+                    ) {
+                        return false;
+                    }
+
+                    $quote->update([
+                        'execution_status' =>
+                            'completed',
+
+                        'completed_at' =>
+                            now(),
+                    ]);
+
+                    $quote->events()->create([
+                        'type' => 'execution_completed',
+                        'ip_address' => request()->ip(),
+                        'user_agent' => request()->userAgent(),
+                    ]);
+
+                    return true;
+                }
+            );
+
+        if ($changed) {
+            $this->dispatch(
+                'quote-toast',
+                message:
+                    'Execução concluída.'
+            );
+        }
+    }
+
+
+    public function postAcceptanceBadges($quote): array
+    {
+        if ($quote->status !== 'accepted') {
+            return [];
+        }
+
+        $badges = [];
+
+
+        /*
+         * Pagamento e execução são independentes.
+         *
+         * Por isso uma proposta pode, por exemplo,
+         * estar em execução e ainda ter pagamento
+         * pendente.
+         */
+        if (
+            ($quote->payment_status ?? 'pending')
+            !== 'paid'
+        ) {
+            $badges[] = [
+                'label' =>
+                    'Pagamento pendente',
+
+                'classes' =>
+                    'bg-amber-100 text-amber-800 '
+                    . 'dark:bg-amber-950/60 '
+                    . 'dark:text-amber-300',
+            ];
+        }
+
+
+        $executionStatus =
+            $quote->execution_status
+            ?? 'pending';
+
+
+        $badges[] = match ($executionStatus) {
+
+            'in_progress' => [
+                'label' =>
+                    'Em execução',
+
+                'classes' =>
+                    'bg-blue-100 text-blue-700 '
+                    . 'dark:bg-blue-950/70 '
+                    . 'dark:text-blue-300',
+            ],
+
+            'completed' => [
+                'label' =>
+                    'Concluído',
+
+                'classes' =>
+                    'bg-emerald-100 text-emerald-700 '
+                    . 'dark:bg-emerald-950/60 '
+                    . 'dark:text-emerald-300',
+            ],
+
+            default => [
+                'label' =>
+                    'Aguardando execução',
+
+                'classes' =>
+                    'bg-zinc-100 text-zinc-700 '
+                    . 'dark:bg-zinc-800 '
+                    . 'dark:text-zinc-300',
+            ],
+        };
+
+
+        return $badges;
+    }
+
+
 };
 ?>
 
@@ -324,8 +751,69 @@ new #[Title('Orçamentos | Fechou')] class extends Component
                     text-zinc-950
                     dark:text-white
                 ">
-                Orçamentos
+                Propostas
             </h1>
+
+        {{-- ===================================================== --}}
+        {{-- FILTRO ATIVO DO PÓS-ACEITE --}}
+        {{-- ===================================================== --}}
+
+        @if ($this->postAcceptanceLabel())
+
+            <div
+                class="
+                    mt-3
+                    flex w-fit
+                    flex-wrap items-center gap-2
+                    rounded-lg
+
+                    border border-emerald-200
+                    bg-emerald-50
+
+                    px-3 py-2
+
+                    text-sm
+                    text-emerald-800
+
+                    dark:border-emerald-900
+                    dark:bg-emerald-950/30
+                    dark:text-emerald-300
+                "
+            >
+
+                <span>
+                    Exibindo:
+                    <strong>
+                        {{
+                            $this
+                                ->postAcceptanceLabel()
+                        }}
+                    </strong>
+                </span>
+
+                <a
+                    href="{{
+                        route(
+                            'quotes.index'
+                        )
+                    }}"
+                    wire:navigate
+
+                    class="
+                        font-semibold
+                        underline
+                        underline-offset-2
+
+                        hover:no-underline
+                    "
+                >
+                    Limpar filtro
+                </a>
+
+            </div>
+
+        @endif
+
 
             <p
                 class="
@@ -383,7 +871,7 @@ new #[Title('Orçamentos | Fechou')] class extends Component
                     d="M12 5v14M5 12h14" />
             </svg>
 
-            Novo orçamento
+            Nova proposta
 
         </a>
 
@@ -866,7 +1354,60 @@ new #[Title('Orçamentos | Fechou')] class extends Component
             </select>
 
 
-            @if ($search || $status)
+            {{-- PÓS-ACEITE --}}
+
+            <select
+                wire:model.live="postAcceptance"
+
+                class="
+                    rounded-lg
+
+                    border border-zinc-300
+
+                    bg-white
+
+                    px-3 py-2.5
+
+                    text-sm
+                    text-zinc-900
+
+                    dark:border-zinc-700
+                    dark:bg-zinc-950
+                    dark:text-zinc-200
+                ">
+
+                <option value="">
+                    Todos os pós-aceites
+                </option>
+
+                <option value="closed">
+                    Negócios fechados
+                </option>
+
+                <option value="receivable">
+                    A receber
+                </option>
+
+                <option value="awaiting">
+                    Aguardando execução
+                </option>
+
+                <option value="in_progress">
+                    Em execução
+                </option>
+
+                <option value="completed">
+                    Concluídos
+                </option>
+
+            </select>
+
+
+            @if (
+                $search
+                || $status
+                || $this->postAcceptance !== ''
+            )
 
             <button
                 type="button"
@@ -910,6 +1451,18 @@ new #[Title('Orçamentos | Fechou')] class extends Component
     {{-- ========================================================= --}}
 
     <div
+        x-data="{ quickAction: null, quoteId: null, quoteNumber: null, toast: null, toastTimer: null }"
+        @quote-toast.window="
+            toast = $event.detail.message;
+
+            clearTimeout(toastTimer);
+
+            toastTimer = setTimeout(
+                () => toast = null,
+                3500
+            );
+        "
+        @keydown.escape.window="quickAction = null; toast = null"
         class="
             overflow-hidden
 
@@ -925,39 +1478,240 @@ new #[Title('Orçamentos | Fechou')] class extends Component
             dark:bg-zinc-900
         ">
 
-        @forelse ($this->quotes as $quote)
 
-        <a
-            href="{{ route(
-                    'quotes.show',
-                    $quote->id
-                ) }}"
+        {{-- ===================================================== --}}
+        {{-- TOAST DE AÇÃO RÁPIDA --}}
+        {{-- ===================================================== --}}
 
-            wire:navigate
+        <div
+            x-cloak
+            x-show="toast !== null"
 
-            wire:key="quote-{{ $quote->id }}"
+            x-transition:enter="
+                transition
+                ease-out
+                duration-200
+            "
+            x-transition:enter-start="
+                opacity-0
+                translate-y-2
+            "
+            x-transition:enter-end="
+                opacity-100
+                translate-y-0
+            "
+            x-transition:leave="
+                transition
+                ease-in
+                duration-150
+            "
+            x-transition:leave-start="
+                opacity-100
+                translate-y-0
+            "
+            x-transition:leave-end="
+                opacity-0
+                translate-y-2
+            "
 
             class="
+                pointer-events-none
+
+                fixed
+                right-4
+                top-4
+                z-[60]
+
+                w-[calc(100%-2rem)]
+                max-w-sm
+
+                sm:right-6
+                sm:top-6
+            "
+        >
+
+            <div
+                class="
+                    pointer-events-auto
+
+                    flex
+                    items-start
+                    gap-3
+
+                    rounded-xl
+
+                    border
+                    border-emerald-200
+
+                    bg-white
+
+                    px-4 py-3.5
+
+                    shadow-xl
+                    shadow-black/10
+
+                    dark:border-emerald-900
+                    dark:bg-zinc-900
+                "
+            >
+
+                <div
+                    class="
+                        mt-0.5
+
+                        flex
+                        size-7
+                        shrink-0
+                        items-center
+                        justify-center
+
+                        rounded-full
+
+                        bg-emerald-100
+                        text-emerald-700
+
+                        dark:bg-emerald-950
+                        dark:text-emerald-300
+                    "
+                >
+                    <svg
+                        class="size-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        aria-hidden="true"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="m5 12 4 4L19 6"
+                        />
+                    </svg>
+                </div>
+
+
+                <div class="min-w-0 flex-1">
+
+                    <p
+                        class="
+                            text-xs
+                            font-semibold
+                            uppercase
+                            tracking-wide
+
+                            text-emerald-600
+                            dark:text-emerald-400
+                        "
+                    >
+                        Atualizado
+                    </p>
+
+                    <p
+                        class="
+                            mt-0.5
+
+                            text-sm
+                            font-medium
+
+                            text-zinc-800
+                            dark:text-zinc-100
+                        "
+
+                        x-text="toast"
+                    ></p>
+
+                </div>
+
+
+                <button
+                    type="button"
+
+                    @click="
+                        clearTimeout(toastTimer);
+                        toast = null;
+                    "
+
+                    class="
+                        shrink-0
+
+                        rounded-lg
+
+                        p-1
+
+                        text-zinc-400
+
+                        transition
+
+                        hover:bg-zinc-100
+                        hover:text-zinc-700
+
+                        dark:hover:bg-zinc-800
+                        dark:hover:text-zinc-200
+                    "
+                >
+                    <span class="sr-only">
+                        Fechar notificação
+                    </span>
+
+                    <svg
+                        class="size-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        aria-hidden="true"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            d="M6 6l12 12M18 6 6 18"
+                        />
+                    </svg>
+                </button>
+
+            </div>
+
+        </div>
+
+        @forelse ($this->quotes as $quote)
+
+        <div
+            wire:key="quote-{{ $quote->id }}"
+            data-quote-row="{{ $quote->id }}"
+
+            class="
+                border-b
+                border-zinc-100
+
+                last:border-b-0
+
+                dark:border-zinc-800
+            "
+        >
+
+            <a
+                href="{{ route(
+                        'quotes.show',
+                        $quote->id
+                    ) }}"
+
+                wire:navigate
+
+                class="
                     group
-
                     block
-
-                    border-b
-                    border-zinc-100
 
                     px-5 py-4
 
                     transition
 
-                    last:border-b-0
-
                     hover:bg-zinc-50
 
                     sm:px-6
 
-                    dark:border-zinc-800
                     dark:hover:bg-zinc-800/40
-                ">
+                "
+            >
 
             <div
                 class="
@@ -1022,6 +1776,45 @@ new #[Title('Orçamentos | Fechou')] class extends Component
                                     $quote->status
                                 ) }}
                         </span>
+
+
+                        {{-- ============================================= --}}
+                        {{-- STATUS PÓS-ACEITE --}}
+                        {{-- ============================================= --}}
+
+                        @foreach (
+                            $this->postAcceptanceBadges(
+                                $quote
+                            ) as $postBadge
+                        )
+
+                            <span
+                                class="
+                                    inline-flex
+                                    items-center
+
+                                    rounded-full
+
+                                    px-2 py-0.5
+
+                                    text-[11px]
+                                    font-semibold
+
+                                    {{
+                                        $postBadge[
+                                            'classes'
+                                        ]
+                                    }}
+                                "
+                            >
+                                {{
+                                    $postBadge[
+                                        'label'
+                                    ]
+                                }}
+                            </span>
+
+                        @endforeach
 
 
                         {{-- VERSÃO --}}
@@ -1134,7 +1927,7 @@ new #[Title('Orçamentos | Fechou')] class extends Component
                         </svg>
 
 
-                        Nova versão do orçamento
+                        Nova versão da proposta
 
                         @if ($this->rootQuoteNumber($quote))
 
@@ -1290,6 +2083,219 @@ new #[Title('Orçamentos | Fechou')] class extends Component
         </a>
 
 
+            {{-- ================================================= --}}
+            {{-- AÇÕES RÁPIDAS PÓS-ACEITE --}}
+            {{-- ================================================= --}}
+
+            @if (
+                $quote->status === 'accepted'
+                && (
+                    ($quote->payment_status ?? 'pending')
+                        !== 'paid'
+                    || in_array(
+                        $quote->execution_status,
+                        [
+                            null,
+                            'pending',
+                            'in_progress',
+                        ],
+                        true
+                    )
+                )
+            )
+
+                <div
+                    class="
+                        flex
+                        flex-wrap
+                        items-center
+                        gap-2
+
+                        px-5
+                        pb-4
+
+                        sm:px-6
+                    "
+                >
+
+
+
+
+                    @if (
+                        ($quote->payment_status ?? 'pending')
+                        !== 'paid'
+                    )
+
+                        <button
+                            type="button"
+
+                            data-quick-action="payment"
+
+                            @click="
+                                quickAction = 'payment';
+                                quoteId = {{ $quote->id }};
+                                quoteNumber = '{{ str_pad(
+                                    $quote->number,
+                                    4,
+                                    '0',
+                                    STR_PAD_LEFT
+                                ) }}';
+                            "
+
+                            class="
+                                inline-flex
+                                items-center
+                                gap-1.5
+
+                                rounded-lg
+
+                                border
+                                border-amber-200
+
+                                bg-amber-50
+
+                                px-3 py-1.5
+
+                                text-xs
+                                font-semibold
+                                text-amber-800
+
+                                transition
+
+                                hover:bg-amber-100
+
+                                dark:border-amber-900
+                                dark:bg-amber-950/40
+                                dark:text-amber-300
+                                dark:hover:bg-amber-950/70
+                            "
+                        >
+                            Marcar como pago
+                        </button>
+
+                    @endif
+
+
+                    @if (
+                        in_array(
+                            $quote->execution_status,
+                            [
+                                null,
+                                'pending',
+                            ],
+                            true
+                        )
+                    )
+
+                        <button
+                            type="button"
+
+                            data-quick-action="start"
+
+                            @click="
+                                quickAction = 'start';
+                                quoteId = {{ $quote->id }};
+                                quoteNumber = '{{ str_pad(
+                                    $quote->number,
+                                    4,
+                                    '0',
+                                    STR_PAD_LEFT
+                                ) }}';
+                            "
+
+                            class="
+                                inline-flex
+                                items-center
+                                gap-1.5
+
+                                rounded-lg
+
+                                border
+                                border-blue-200
+
+                                bg-blue-50
+
+                                px-3 py-1.5
+
+                                text-xs
+                                font-semibold
+                                text-blue-700
+
+                                transition
+
+                                hover:bg-blue-100
+
+                                dark:border-blue-900
+                                dark:bg-blue-950/40
+                                dark:text-blue-300
+                                dark:hover:bg-blue-950/70
+                            "
+                        >
+                            Iniciar execução
+                        </button>
+
+
+                    @elseif (
+                        $quote->execution_status
+                        === 'in_progress'
+                    )
+
+                        <button
+                            type="button"
+
+                            data-quick-action="complete"
+
+                            @click="
+                                quickAction = 'complete';
+                                quoteId = {{ $quote->id }};
+                                quoteNumber = '{{ str_pad(
+                                    $quote->number,
+                                    4,
+                                    '0',
+                                    STR_PAD_LEFT
+                                ) }}';
+                            "
+
+                            class="
+                                inline-flex
+                                items-center
+                                gap-1.5
+
+                                rounded-lg
+
+                                border
+                                border-emerald-200
+
+                                bg-emerald-50
+
+                                px-3 py-1.5
+
+                                text-xs
+                                font-semibold
+                                text-emerald-700
+
+                                transition
+
+                                hover:bg-emerald-100
+
+                                dark:border-emerald-900
+                                dark:bg-emerald-950/40
+                                dark:text-emerald-300
+                                dark:hover:bg-emerald-950/70
+                            "
+                        >
+                            Concluir execução
+                        </button>
+
+                    @endif
+
+                </div>
+
+            @endif
+
+        </div>
+
+
         @empty
 
         {{-- ================================================= --}}
@@ -1343,11 +2349,37 @@ new #[Title('Orçamentos | Fechou')] class extends Component
                         text-zinc-900
                         dark:text-white
                     ">
-                @if ($search || $status)
-                Nenhum orçamento encontrado
+
+                @if ($this->postAcceptance === 'closed')
+
+                    Nenhum negócio fechado
+
+                @elseif ($this->postAcceptance === 'receivable')
+
+                    Nenhum pagamento pendente
+
+                @elseif ($this->postAcceptance === 'awaiting')
+
+                    Nenhuma proposta aguardando execução
+
+                @elseif ($this->postAcceptance === 'in_progress')
+
+                    Nenhuma proposta em execução
+
+                @elseif ($this->postAcceptance === 'completed')
+
+                    Nenhuma execução concluída
+
+                @elseif ($search || $status)
+
+                    Nenhuma proposta encontrada
+
                 @else
-                Nenhum orçamento ainda
+
+                    Nenhuma proposta ainda
+
                 @endif
+
             </h3>
 
 
@@ -1363,55 +2395,374 @@ new #[Title('Orçamentos | Fechou')] class extends Component
                         text-zinc-500
                         dark:text-zinc-400
                     ">
-                @if ($search || $status)
 
-                Tente alterar os filtros para encontrar outros orçamentos.
+                @if ($this->postAcceptance === 'closed')
+
+                    Nenhuma proposta aceita corresponde
+                    a este filtro no momento.
+
+                @elseif ($this->postAcceptance === 'receivable')
+
+                    Todos os negócios fechados estão
+                    com o pagamento registrado.
+
+                @elseif ($this->postAcceptance === 'awaiting')
+
+                    Não há negócios aguardando
+                    o início da execução.
+
+                @elseif ($this->postAcceptance === 'in_progress')
+
+                    Não há serviços ou pedidos
+                    em execução no momento.
+
+                @elseif ($this->postAcceptance === 'completed')
+
+                    Nenhuma execução foi marcada
+                    como concluída ainda.
+
+                @elseif ($search || $status)
+
+                    Tente alterar os filtros para
+                    encontrar outras propostas.
 
                 @else
 
-                Crie seu primeiro orçamento e envie uma proposta profissional ao cliente.
+                    Crie sua primeira proposta e envie
+                    uma proposta profissional ao cliente.
 
                 @endif
+
             </p>
 
 
-            @if (! $search && ! $status)
+            @if ($this->postAcceptance !== '')
 
-            <a
-                href="{{ route('quotes.create') }}"
-                wire:navigate
+                <a
+                    href="{{ route('quotes.index') }}"
+                    wire:navigate
 
-                class="
-                            mt-5
+                    class="
+                        mt-5
 
-                            inline-flex
-                            items-center
-                            justify-center
-                            gap-2
+                        inline-flex
+                        items-center
+                        justify-center
+                        gap-2
 
-                            rounded-lg
+                        rounded-lg
 
-                            bg-emerald-600
+                        border
+                        border-zinc-300
 
-                            px-4 py-2.5
+                        bg-white
 
-                            text-sm
-                            font-semibold
-                            text-white
+                        px-4 py-2.5
 
-                            hover:bg-emerald-700
+                        text-sm
+                        font-semibold
+                        text-zinc-700
 
-                            dark:bg-emerald-500
-                            dark:text-zinc-950
-                        ">
-                + Criar orçamento
-            </a>
+                        transition
+
+                        hover:bg-zinc-100
+
+                        dark:border-zinc-700
+                        dark:bg-zinc-900
+                        dark:text-zinc-200
+                        dark:hover:bg-zinc-800
+                    "
+                >
+                    Limpar filtro
+                </a>
+
+
+            @elseif (! $search && ! $status)
+
+                <a
+                    href="{{ route('quotes.create') }}"
+                    wire:navigate
+
+                    class="
+                        mt-5
+
+                        inline-flex
+                        items-center
+                        justify-center
+                        gap-2
+
+                        rounded-lg
+
+                        bg-emerald-600
+
+                        px-4 py-2.5
+
+                        text-sm
+                        font-semibold
+                        text-white
+
+                        transition
+
+                        hover:bg-emerald-700
+
+                        dark:bg-emerald-500
+                        dark:text-zinc-950
+                        dark:hover:bg-emerald-400
+                    "
+                >
+                    + Criar proposta
+                </a>
 
             @endif
 
         </div>
 
         @endforelse
+
+
+        {{-- ===================================================== --}}
+        {{-- MODAL DE AÇÃO RÁPIDA --}}
+        {{-- ===================================================== --}}
+
+        <div
+            x-cloak
+            x-show="quickAction !== null"
+            x-transition.opacity
+
+            @click.self="quickAction = null"
+
+            class="
+                fixed inset-0 z-50
+
+                flex items-center
+                justify-center
+
+                bg-black/50
+
+                p-4
+            "
+        >
+            <div
+                x-show="quickAction !== null"
+                x-transition
+
+                class="
+                    w-full
+                    max-w-md
+
+                    rounded-2xl
+
+                    border
+                    border-zinc-200
+
+                    bg-white
+
+                    p-6
+
+                    shadow-2xl
+
+                    dark:border-zinc-800
+                    dark:bg-zinc-900
+                "
+            >
+
+                <div
+                    class="
+                        flex items-start
+                        justify-between
+                        gap-4
+                    "
+                >
+
+                    <div>
+                        <h3
+                            class="
+                                text-lg
+                                font-semibold
+
+                                text-zinc-950
+                                dark:text-white
+                            "
+
+                            x-text="
+                                quickAction === 'payment'
+                                    ? 'Confirmar pagamento'
+                                    : (
+                                        quickAction === 'start'
+                                            ? 'Iniciar execução'
+                                            : 'Concluir execução'
+                                    )
+                            "
+                        ></h3>
+
+                        <p
+                            class="
+                                mt-2
+
+                                text-sm
+                                leading-6
+
+                                text-zinc-500
+                                dark:text-zinc-400
+                            "
+
+                            x-text="
+                                quickAction === 'payment'
+                                    ? 'Registrar o pagamento da proposta #' + quoteNumber + '?'
+                                    : (
+                                        quickAction === 'start'
+                                            ? 'Registrar o início da execução da proposta #' + quoteNumber + '?'
+                                            : 'Marcar a execução da proposta #' + quoteNumber + ' como concluída?'
+                                    )
+                            "
+                        ></p>
+                    </div>
+
+
+                    <button
+                        type="button"
+
+                        @click="quickAction = null"
+
+                        class="
+                            shrink-0
+
+                            rounded-lg
+
+                            p-1.5
+
+                            text-zinc-400
+
+                            transition
+
+                            hover:bg-zinc-100
+                            hover:text-zinc-700
+
+                            dark:hover:bg-zinc-800
+                            dark:hover:text-zinc-200
+                        "
+                    >
+                        <span class="sr-only">
+                            Fechar
+                        </span>
+
+                        <svg
+                            class="size-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                d="M6 6l12 12M18 6 6 18"
+                            />
+                        </svg>
+                    </button>
+
+                </div>
+
+
+                <div
+                    class="
+                        mt-6
+
+                        flex
+                        justify-end
+                        gap-2
+                    "
+                >
+
+                    <button
+                        type="button"
+
+                        @click="quickAction = null"
+
+                        class="
+                            rounded-lg
+
+                            border
+                            border-zinc-300
+
+                            bg-white
+
+                            px-4 py-2
+
+                            text-sm
+                            font-semibold
+                            text-zinc-700
+
+                            transition
+
+                            hover:bg-zinc-100
+
+                            dark:border-zinc-700
+                            dark:bg-zinc-900
+                            dark:text-zinc-200
+                            dark:hover:bg-zinc-800
+                        "
+                    >
+                        Cancelar
+                    </button>
+
+
+                    <button
+                        type="button"
+
+                        @click="
+                            const action = quickAction;
+                            const id = quoteId;
+
+                            quickAction = null;
+
+                            if (action === 'payment') {
+                                $wire.markAsPaidFromList(id);
+                            }
+
+                            if (action === 'start') {
+                                $wire.startExecutionFromList(id);
+                            }
+
+                            if (action === 'complete') {
+                                $wire.completeExecutionFromList(id);
+                            }
+                        "
+
+                        class="
+                            rounded-lg
+
+                            bg-emerald-600
+
+                            px-4 py-2
+
+                            text-sm
+                            font-semibold
+                            text-white
+
+                            transition
+
+                            hover:bg-emerald-700
+
+                            dark:bg-emerald-500
+                            dark:text-zinc-950
+                            dark:hover:bg-emerald-400
+                        "
+
+                        x-text="
+                            quickAction === 'payment'
+                                ? 'Confirmar pagamento'
+                                : (
+                                    quickAction === 'start'
+                                        ? 'Iniciar execução'
+                                        : 'Concluir execução'
+                                )
+                        "
+                    ></button>
+
+                </div>
+
+            </div>
+        </div>
 
     </div>
 

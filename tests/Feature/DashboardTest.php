@@ -12,16 +12,27 @@ class DashboardTest extends TestCase
 
     public function test_guests_are_redirected_to_the_login_page(): void
     {
-        $response = $this->get(route('dashboard'));
-        $response->assertRedirect(route('login'));
+        $this
+            ->get(route('dashboard'))
+            ->assertRedirect(route('login'));
     }
 
     public function test_authenticated_users_can_visit_the_dashboard(): void
     {
         $user = User::factory()->create();
-        $this->actingAs($user);
 
-        $response = $this->get(route('dashboard'));
-        $response->assertOk();
+        /*
+         * Este teste representa uma conta que já concluiu
+         * a configuração inicial.
+         */
+        $user->business()->create([
+            'name' => 'Empresa Teste',
+            'onboarding_completed_at' => now(),
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk();
     }
 }

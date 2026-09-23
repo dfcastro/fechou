@@ -20,7 +20,9 @@ class DatabaseSeeder extends Seeder
         | Usuário de demonstração
         |--------------------------------------------------------------------------
         */
-
+        $this->call([
+            PlanSeeder::class,
+        ]);
         $user = User::factory()->create([
             'name' => 'Daniel Demo',
             'email' => 'demo@fechou.local',

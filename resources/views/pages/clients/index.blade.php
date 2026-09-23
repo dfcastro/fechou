@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\BrazilianInput;
 use App\Models\Client;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -92,6 +93,22 @@ new #[Title('Clientes | Fechou')] class extends Component
 
     public function save(): void
     {
+        /* FECHOU: NORMALIZAÇÃO DE CAMPOS */
+        $this->document =
+            BrazilianInput::document(
+                $this->document
+            ) ?? '';
+
+        $this->phone =
+            BrazilianInput::phone(
+                $this->phone
+            ) ?? '';
+
+        $this->whatsapp =
+            BrazilianInput::phone(
+                $this->whatsapp
+            ) ?? '';
+
         abort_unless($this->business, 403);
 
         $validated = $this->validate([
@@ -175,7 +192,7 @@ new #[Title('Clientes | Fechou')] class extends Component
         if ($client->quotes()->exists()) {
             $this->addError(
                 'delete',
-                'Este cliente possui orçamentos vinculados e não pode ser excluído.'
+                'Este cliente possui propostas vinculadas e não pode ser excluído.'
             );
 
             $this->confirmingDeleteId = null;
@@ -205,7 +222,7 @@ new #[Title('Clientes | Fechou')] class extends Component
 };
 ?>
 
-<div class="space-y-6">
+<div class="mx-auto w-full max-w-7xl space-y-6">
 
     {{-- Cabeçalho --}}
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -215,7 +232,7 @@ new #[Title('Clientes | Fechou')] class extends Component
             </h1>
 
             <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                Cadastre e gerencie os clientes que recebem seus orçamentos.
+                Cadastre e gerencie os clientes que recebem suas propostas.
             </p>
         </div>
 
@@ -279,12 +296,12 @@ new #[Title('Clientes | Fechou')] class extends Component
         class="
                 rounded-2xl
                 border border-zinc-200
-                bg-white p-6
+                bg-white p-5
                 shadow-sm
                 dark:border-zinc-800
                 dark:bg-zinc-900
             ">
-        <div class="mb-6 flex items-start justify-between gap-4">
+        <div class="mb-4 flex items-start justify-between gap-4">
             <div>
                 <h2 class="text-lg font-semibold text-zinc-950 dark:text-white">
                     {{ $editingId ? 'Editar cliente' : 'Novo cliente' }}
@@ -314,7 +331,7 @@ new #[Title('Clientes | Fechou')] class extends Component
             </button>
         </div>
 
-        <div class="grid gap-5 md:grid-cols-2">
+        <div class="grid gap-4 md:grid-cols-2">
 
             <div class="md:col-span-2">
                 <label class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -363,7 +380,12 @@ new #[Title('Clientes | Fechou')] class extends Component
                             outline-none
                             focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20
                             dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100
-                        ">
+                        "
+                                    data-fechou-mask="document"
+                                    inputmode="numeric"
+                                    maxlength="18"
+                                    autocomplete="off"
+                                >
             </div>
 
             <div>
@@ -381,7 +403,12 @@ new #[Title('Clientes | Fechou')] class extends Component
                             outline-none
                             focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20
                             dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100
-                        ">
+                        "
+                                    data-fechou-mask="phone"
+                                    inputmode="tel"
+                                    maxlength="15"
+                                    autocomplete="tel"
+                                >
             </div>
 
             <div>
@@ -399,7 +426,12 @@ new #[Title('Clientes | Fechou')] class extends Component
                             outline-none
                             focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20
                             dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100
-                        ">
+                        "
+                                    data-fechou-mask="phone"
+                                    inputmode="tel"
+                                    maxlength="15"
+                                    autocomplete="tel"
+                                >
             </div>
 
             <div>
@@ -446,7 +478,7 @@ new #[Title('Clientes | Fechou')] class extends Component
 
         </div>
 
-        <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
                 type="button"
                 wire:click="cancel"
@@ -537,7 +569,7 @@ new #[Title('Clientes | Fechou')] class extends Component
 
     {{-- Tabela --}}
     <div class="
-        overflow-hidden rounded-xl
+        overflow-hidden rounded-2xl
         border border-zinc-200
         bg-white
         shadow-sm
@@ -561,7 +593,7 @@ new #[Title('Clientes | Fechou')] class extends Component
                         <th class="px-5 py-3">Cliente</th>
                         <th class="px-5 py-3">Contato</th>
                         <th class="px-5 py-3">Documento</th>
-                        <th class="px-5 py-3 text-center">Orçamentos</th>
+                        <th class="px-5 py-3 text-center">Propostas</th>
                         <th class="px-5 py-3 text-right">Ações</th>
                     </tr>
                 </thead>
@@ -763,7 +795,7 @@ new #[Title('Clientes | Fechou')] class extends Component
                             </p>
 
                             <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                                Cadastre seu primeiro cliente para criar um orçamento.
+                                Cadastre seu primeiro cliente para criar uma proposta.
                             </p>
 
                         </td>

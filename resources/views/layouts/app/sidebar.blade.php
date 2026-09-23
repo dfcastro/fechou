@@ -5,8 +5,7 @@
     @include('partials.head')
 </head>
 
-<body
-    class="
+<body class="
         min-h-screen
         bg-zinc-50
         text-zinc-900
@@ -19,10 +18,7 @@
     {{-- SIDEBAR --}}
     {{-- ========================================================= --}}
 
-    <flux:sidebar
-        sticky
-        stashable
-        class="
+    <flux:sidebar sticky collapsible="mobile" class="
             border-r border-zinc-200
             bg-white
 
@@ -34,9 +30,7 @@
         {{-- FECHAR SIDEBAR NO MOBILE --}}
         {{-- ===================================================== --}}
 
-        <flux:sidebar.toggle
-            class="lg:hidden"
-            icon="x-mark" />
+        <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
 
         {{-- ===================================================== --}}
@@ -45,13 +39,9 @@
 
         <div class="px-2 pb-6 pt-2">
 
-            <a
-                href="{{ route('dashboard') }}"
-                wire:navigate
-                class="flex items-center gap-3">
+            <a href="{{ route('dashboard') }}" wire:navigate class="flex items-center gap-3">
 
-                <div
-                    class="
+                <div class="
                         flex size-9
                         items-center
                         justify-center
@@ -75,8 +65,7 @@
 
                 <div class="min-w-0">
 
-                    <div
-                        class="
+                    <div class="
                             text-lg
                             font-bold
                             tracking-tight
@@ -87,8 +76,7 @@
                         Fechou
                     </div>
 
-                    <div
-                        class="
+                    <div class="
                             text-[11px]
                             font-medium
 
@@ -115,39 +103,45 @@
             {{-- GESTÃO --}}
             {{-- ================================================= --}}
 
-            <flux:navlist.group
-                heading="Gestão"
-                class="grid">
+            <flux:navlist.group heading="Gestão" class="grid">
 
-                {{-- DASHBOARD --}}
-
-                <flux:navlist.item
-                    icon="home"
-                    href="{{ route('dashboard') }}"
-                    :current="request()->routeIs('dashboard')"
-                    wire:navigate>
+                <flux:navlist.item icon="home" href="{{ route('dashboard') }}"
+                    :current="request()->routeIs('dashboard')" wire:navigate>
                     Dashboard
                 </flux:navlist.item>
 
 
-                {{-- ORÇAMENTOS --}}
-
-                <flux:navlist.item
-                    icon="document-text"
-                    href="{{ route('quotes.index') }}"
-                    :current="request()->routeIs('quotes.*')"
-                    wire:navigate>
-                    Orçamentos
+                <flux:navlist.item icon="document-text" href="{{ route('quotes.index') }}"
+                    :current="request()->routeIs(
+                        'quotes.index',
+                        'quotes.create',
+                        'quotes.edit',
+                        'quotes.show'
+                    )" wire:navigate>
+                    Propostas
                 </flux:navlist.item>
 
 
-                {{-- CLIENTES --}}
+                <flux:navlist.item icon="chart-bar" href="{{ route('quotes.pipeline') }}"
+                    :current="request()->routeIs('quotes.pipeline')" wire:navigate>
+                    Pipeline
+                </flux:navlist.item>
 
-                <flux:navlist.item
-                    icon="users"
-                    href="{{ route('clients.index') }}"
-                    :current="request()->routeIs('clients.*')"
-                    wire:navigate>
+
+                <flux:navlist.item icon="chart-bar" href="{{ route('reports.commercial') }}"
+                    :current="request()->routeIs('reports.*')" wire:navigate>
+                    Relatórios
+                </flux:navlist.item>
+
+
+                <flux:navlist.item icon="document-duplicate" href="{{ route('quote-templates.index') }}"
+                    :current="request()->routeIs('quote-templates.*')" wire:navigate>
+                    Modelos
+                </flux:navlist.item>
+
+
+                <flux:navlist.item icon="users" href="{{ route('clients.index') }}"
+                    :current="request()->routeIs('clients.*')" wire:navigate>
                     Clientes
                 </flux:navlist.item>
 
@@ -155,38 +149,54 @@
 
 
             {{-- ================================================= --}}
+            {{-- ADMINISTRAÇÃO --}}
+            {{-- ================================================= --}}
+
+            @if (Auth::user()->is_admin)
+
+                <flux:navlist.group heading="Administração" class="mt-4">
+
+                    <flux:navlist.item icon="chart-bar" href="{{ route('admin.metrics') }}"
+                        :current="request()->routeIs('admin.metrics')" wire:navigate>
+                        Métricas
+                    </flux:navlist.item>
+
+                </flux:navlist.group>
+
+            @endif
+
+
+            {{-- ================================================= --}}
             {{-- CONFIGURAÇÕES --}}
             {{-- ================================================= --}}
 
-            <flux:navlist.group
-                heading="Configurações"
-                expandable
-                :expanded="request()->routeIs('settings.*')"
+            <flux:navlist.group heading="Configurações" expandable :expanded="request()->routeIs('settings.*')"
                 class="mt-4">
 
-                {{-- EMPRESA --}}
-
-                <flux:navlist.item
-                    icon="building-office"
-                    href="{{ route('settings.business') }}"
-                    :current="request()->routeIs('settings.business')"
-                    wire:navigate>
+                <flux:navlist.item icon="building-office" href="{{ route('settings.business') }}"
+                    :current="request()->routeIs('settings.business')" wire:navigate>
                     Empresa
                 </flux:navlist.item>
 
 
-                {{-- FOLLOW-UP --}}
-                {{-- Só aparece depois que criarmos a rota. --}}
+                <flux:navlist.item icon="banknotes" href="{{ route('settings.payment') }}"
+                    :current="request()->routeIs('settings.payment')" wire:navigate>
+                    Cobrança
+                </flux:navlist.item>
+
+
+                <flux:navlist.item icon="credit-card" href="{{ route('settings.subscription') }}"
+                    :current="request()->routeIs('settings.subscription')" wire:navigate>
+                    Plano e assinatura
+                </flux:navlist.item>
+
 
                 @if (Route::has('settings.follow-up'))
 
-                <flux:navlist.item
-                    icon="clock"
-                    href="{{ route('settings.follow-up') }}"
-                    :current="request()->routeIs('settings.follow-up')"
-                    wire:navigate>
-                    Follow-up
-                </flux:navlist.item>
+                    <flux:navlist.item icon="clock" href="{{ route('settings.follow-up') }}"
+                        :current="request()->routeIs('settings.follow-up')" wire:navigate>
+                        Follow-up
+                    </flux:navlist.item>
 
                 @endif
 
@@ -196,7 +206,7 @@
 
 
         {{-- ===================================================== --}}
-        {{-- EMPURRA A CONTA PARA BAIXO --}}
+        {{-- EMPURRA CONTA PARA BAIXO --}}
         {{-- ===================================================== --}}
 
         <flux:spacer />
@@ -206,29 +216,22 @@
         {{-- CONTA --}}
         {{-- ===================================================== --}}
 
-        <div
-            class="
+        <div class="
                 border-t border-zinc-200
                 pt-4
 
                 dark:border-zinc-800
             ">
 
-            <flux:dropdown
-                position="top"
-                align="start"
-                class="w-full">
+            <flux:dropdown position="top" align="start" class="w-full">
 
-                <flux:button
-                    variant="ghost"
-                    class="w-full justify-start">
+                <flux:button variant="ghost" class="w-full justify-start">
 
                     <div class="flex min-w-0 items-center gap-3">
 
                         {{-- AVATAR --}}
 
-                        <div
-                            class="
+                        <div class="
                                 flex size-8
                                 shrink-0
                                 items-center
@@ -246,12 +249,12 @@
                                 dark:text-zinc-200
                             ">
                             {{ mb_strtoupper(
-                                mb_substr(
-                                    Auth::user()->name,
-                                    0,
-                                    1
-                                )
-                            ) }}
+    mb_substr(
+        Auth::user()->name,
+        0,
+        1
+    )
+) }}
                         </div>
 
 
@@ -259,8 +262,7 @@
 
                         <div class="min-w-0 text-left">
 
-                            <p
-                                class="
+                            <p class="
                                     truncate
 
                                     text-sm
@@ -273,8 +275,7 @@
                             </p>
 
 
-                            <p
-                                class="
+                            <p class="
                                     truncate
 
                                     text-xs
@@ -298,26 +299,21 @@
 
                 <flux:menu>
 
-                    {{-- EMPRESA --}}
-
-                    <flux:menu.item
-                        icon="building-office"
-                        href="{{ route('settings.business') }}"
-                        wire:navigate>
+                    <flux:menu.item icon="building-office" href="{{ route('settings.business') }}" wire:navigate>
                         Minha empresa
                     </flux:menu.item>
 
 
-                    {{-- FOLLOW-UP --}}
+                    <flux:menu.item icon="credit-card" href="{{ route('settings.subscription') }}" wire:navigate>
+                        Plano e assinatura
+                    </flux:menu.item>
+
 
                     @if (Route::has('settings.follow-up'))
 
-                    <flux:menu.item
-                        icon="clock"
-                        href="{{ route('settings.follow-up') }}"
-                        wire:navigate>
-                        Configurar follow-up
-                    </flux:menu.item>
+                        <flux:menu.item icon="clock" href="{{ route('settings.follow-up') }}" wire:navigate>
+                            Configurar follow-up
+                        </flux:menu.item>
 
                     @endif
 
@@ -325,19 +321,10 @@
                     <flux:menu.separator />
 
 
-                    {{-- LOGOUT --}}
-
-                    <form
-                        method="POST"
-                        action="{{ route('logout') }}"
-                        class="w-full">
+                    <form method="POST" action="{{ route('logout') }}" class="w-full">
                         @csrf
 
-                        <flux:menu.item
-                            as="button"
-                            type="submit"
-                            icon="arrow-right-start-on-rectangle"
-                            class="w-full">
+                        <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle" class="w-full">
                             Sair
                         </flux:menu.item>
 
@@ -356,10 +343,10 @@
     {{-- HEADER MOBILE --}}
     {{-- ========================================================= --}}
 
-    <flux:header
-        class="
+    <flux:header class="
             border-b border-zinc-200
             bg-white
+            pr-14
 
             lg:hidden
 
@@ -367,19 +354,12 @@
             dark:bg-zinc-950
         ">
 
-        {{-- ABRIR SIDEBAR --}}
+        <flux:sidebar.toggle icon="bars-2" inset="left" />
 
-        <flux:sidebar.toggle
-            icon="bars-2"
-            inset="left" />
-
-
-        {{-- MARCA MOBILE --}}
 
         <div class="ml-2 flex items-center gap-2">
 
-            <div
-                class="
+            <div class="
                     flex size-7
                     items-center
                     justify-center
@@ -399,11 +379,10 @@
             </div>
 
 
-            <span
-                class="
+            <span class="
                     font-semibold
-
                     text-zinc-950
+
                     dark:text-white
                 ">
                 Fechou
@@ -413,14 +392,142 @@
 
 
         <flux:spacer />
+
     </flux:header>
 
 
     {{-- ========================================================= --}}
     {{-- CONTEÚDO PRINCIPAL --}}
+    {{-- ÚNICO FLUX:MAIN DO LAYOUT --}}
     {{-- ========================================================= --}}
 
+    <flux:main class="min-w-0">
+
+        {{-- Notificação é fixa e fica dentro do main para não criar
+        um item extra no grid principal do Flux. --}}
+        <livewire:notifications-bell />
+
+
+    {{-- ========================================================= --}}
+    {{-- VERIFICAÇÃO DE E-MAIL — AVISO GLOBAL --}}
+    {{-- ========================================================= --}}
+
+    @if (Auth::check() && ! Auth::user()->hasVerifiedEmail())
+
+        <div class="mx-auto w-full max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
+
+            <div class="
+                    flex flex-col gap-4
+                    rounded-2xl
+                    border border-amber-200
+                    bg-amber-50
+                    px-4 py-4
+                    sm:flex-row
+                    sm:items-center
+                    sm:justify-between
+
+                    dark:border-amber-900/70
+                    dark:bg-amber-950/30
+                ">
+
+                <div class="flex min-w-0 items-start gap-3">
+
+                    <div class="
+                            mt-0.5 flex size-9 shrink-0
+                            items-center justify-center
+                            rounded-xl
+                            bg-amber-100
+                            text-amber-700
+
+                            dark:bg-amber-500/10
+                            dark:text-amber-300
+                        ">
+                        <svg
+                            viewBox="0 0 24 24"
+                            class="size-5"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.9"
+                            aria-hidden="true"
+                        >
+                            <path d="M4 6.5h16v11H4z" stroke-linejoin="round"/>
+                            <path d="m5 8 7 5 7-5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+
+                    <div class="min-w-0">
+                        <p class="
+                                text-sm font-semibold
+                                text-amber-950
+                                dark:text-amber-100
+                            ">
+                            Confirme seu e-mail
+                        </p>
+
+                        <p class="
+                                mt-1 text-sm leading-5
+                                text-amber-800
+                                dark:text-amber-200/80
+                            ">
+                            Verifique seu endereço para compartilhar propostas
+                            e contratar o Fechou Pro.
+                        </p>
+
+                        @if (session('status') === 'verification-link-sent')
+                            <p class="
+                                    mt-2 text-xs font-semibold
+                                    text-emerald-700
+                                    dark:text-emerald-300
+                                ">
+                                Novo link de verificação enviado para
+                                {{ Auth::user()->email }}.
+                            </p>
+                        @endif
+                    </div>
+
+                </div>
+
+                <form
+                    method="POST"
+                    action="{{ route('verification.send') }}"
+                    class="shrink-0"
+                >
+                    @csrf
+
+                    <button
+                        type="submit"
+                        class="
+                            inline-flex w-full items-center justify-center gap-2
+                            rounded-lg
+                            bg-amber-600
+                            px-4 py-2.5
+                            text-sm font-semibold
+                            text-white
+                            shadow-sm
+                            transition
+                            hover:bg-amber-700
+
+                            sm:w-auto
+
+                            dark:bg-amber-500
+                            dark:text-zinc-950
+                            dark:hover:bg-amber-400
+                        "
+                    >
+                        Reenviar e-mail
+                    </button>
+                </form>
+
+            </div>
+
+        </div>
+
+    @endif
+
+
     {{ $slot }}
+
+    </flux:main>
 
 
     {{-- ========================================================= --}}
@@ -436,7 +543,13 @@
     @endpersist
 
 
+    {{-- ========================================================= --}}
+    {{-- SCRIPTS --}}
+    {{-- ========================================================= --}}
+
     @fluxScripts
+
+    @include('partials.form-masks')
 
 </body>
 

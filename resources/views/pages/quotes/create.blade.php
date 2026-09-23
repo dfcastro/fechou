@@ -1,12 +1,18 @@
 <?php
 
+use App\Support\BrazilianInput;
+use App\Models\Business;
+use App\Models\QuoteTemplate;
+use App\Models\Quote;
+use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Novo orçamento | Fechou')] class extends Component
+new #[Title('Nova proposta | Fechou')] class extends Component
 {
     /*
     |--------------------------------------------------------------------------
@@ -33,7 +39,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
 
     /*
     |--------------------------------------------------------------------------
-    | Orçamento
+    | Proposta
     |--------------------------------------------------------------------------
     */
 
@@ -42,6 +48,11 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
     public string $validUntil = '';
     public string $discount = '0';
     public string $notes = '';
+
+    public ?int $selectedTemplateId = null;
+    public string $appliedTemplateName = '';
+
+    public string $duplicateSourceNumber = '';
 
     /*
     |--------------------------------------------------------------------------
@@ -68,9 +79,64 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
 
     public function mount(): void
     {
+        /*
+         * ONBOARDING INICIAL - NOVO ORCAMENTO
+         *
+         * Evita que uma URL direta pule a configuração
+         * básica da empresa.
+         */
+        $business = Auth::user()->business;
+
+        if (
+            !$business
+            || !$business->onboarding_completed_at
+        ) {
+            $this->redirectRoute(
+                'onboarding',
+                navigate: true
+            );
+
+            return;
+        }
+
         $this->validUntil = now()
             ->addDays(7)
             ->format('Y-m-d');
+
+        /*
+         * MODELO INFORMADO PELA URL
+         *
+         * Ex.:
+         * /orcamentos/novo?modelo=12
+         *
+         * Permite que o botão "Usar em proposta"
+         * abra a nova proposta já preenchida.
+         */
+        $duplicateId =
+            request()->integer(
+                'duplicar'
+            );
+
+        if ($duplicateId > 0) {
+            $this->loadDuplicateQuote(
+                $duplicateId
+            );
+
+            return;
+        }
+
+
+        $templateId =
+            request()->integer(
+                'modelo'
+            );
+
+        if ($templateId > 0) {
+            $this->selectedTemplateId =
+                $templateId;
+
+            $this->applySelectedTemplate();
+        }
     }
 
     #[Computed]
@@ -78,6 +144,312 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
     {
         return Auth::user()->business;
     }
+
+
+    #[Computed]
+    public function hasExistingQuotes(): bool
+    {
+        if (! $this->business) {
+            return false;
+        }
+
+        return $this->business
+            ->quotes()
+            ->withTrashed()
+            ->exists();
+    }
+
+#[Computed]
+    public function canCreateQuote(): bool
+    {
+        if (! $this->business) {
+            return false;
+        }
+
+        return app(SubscriptionService::class)
+            ->canCreateQuote($this->business);
+    }
+
+    #[Computed]
+    public function quotesRemaining(): ?int
+    {
+        if (! $this->business) {
+            return 0;
+        }
+
+        return app(SubscriptionService::class)
+            ->quotesRemaining($this->business);
+    }
+
+    #[Computed]
+    public function quoteLimit(): ?int
+    {
+        if (! $this->business) {
+            return 0;
+        }
+
+        return app(SubscriptionService::class)
+            ->currentPlan($this->business)
+            ?->quote_limit;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Duplicar proposta
+    |--------------------------------------------------------------------------
+    */
+
+    public function loadDuplicateQuote(
+        int $quoteId
+    ): void {
+        abort_unless(
+            $this->business,
+            403
+        );
+
+        $source = Quote::query()
+            ->where(
+                'business_id',
+                $this->business->id
+            )
+            ->with([
+                'items' => fn ($query) =>
+                    $query->orderBy(
+                        'sort_order'
+                    ),
+            ])
+            ->findOrFail(
+                $quoteId
+            );
+
+
+        /*
+         * A nova proposta é independente.
+         *
+         * Cliente não é copiado porque o principal
+         * uso é reaproveitar a estrutura para
+         * outro cliente.
+         */
+        $this->clientId = null;
+        $this->clientSearch = '';
+        $this->showClientResults = false;
+
+
+        $this->title =
+            $source->title;
+
+        $this->description =
+            $source->description ?? '';
+
+        $this->discount =
+            (string) $source->discount;
+
+        $this->notes =
+            $source->notes ?? '';
+
+
+        /*
+         * Mantém a duração comercial da validade,
+         * não a data antiga.
+         *
+         * Ex.:
+         * original criada com validade de 15 dias
+         * -> duplicada terá 15 dias a partir de hoje.
+         */
+        if ($source->valid_until) {
+
+            $validityDays =
+                $source->created_at
+                    ->copy()
+                    ->startOfDay()
+                    ->diffInDays(
+                        $source->valid_until
+                            ->copy()
+                            ->startOfDay(),
+                        false
+                    );
+
+            $this->validUntil =
+                now()
+                    ->addDays(
+                        max(
+                            1,
+                            (int) $validityDays
+                        )
+                    )
+                    ->format('Y-m-d');
+
+        } else {
+
+            $this->validUntil = '';
+        }
+
+
+        $this->items = $source
+            ->items
+            ->map(
+                fn ($item) => [
+                    'type' =>
+                        $item->type,
+
+                    'description' =>
+                        $item->description,
+
+                    'quantity' =>
+                        (float) $item->quantity,
+
+                    'unit' =>
+                        $item->unit,
+
+                    'unit_price' =>
+                        (float) $item->unit_price,
+                ]
+            )
+            ->values()
+            ->all();
+
+
+        /*
+         * Duplicação não é aplicação de modelo.
+         */
+        $this->selectedTemplateId = null;
+        $this->appliedTemplateName = '';
+
+
+        $this->duplicateSourceNumber =
+            str_pad(
+                (string) $source->number,
+                4,
+                '0',
+                STR_PAD_LEFT
+            );
+
+
+        $this->showItemForm = false;
+
+        $this->resetItemForm();
+
+        $this->resetValidation([
+            'clientId',
+            'title',
+            'description',
+            'validUntil',
+            'discount',
+            'notes',
+            'items',
+        ]);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Modelos de proposta
+    |--------------------------------------------------------------------------
+    */
+
+    #[Computed]
+    public function quoteTemplates()
+    {
+        if (! $this->business) {
+            return collect();
+        }
+
+        return QuoteTemplate::query()
+            ->where(
+                'business_id',
+                $this->business->id
+            )
+            ->withCount('items')
+            ->orderBy('name')
+            ->get();
+    }
+
+
+    public function applySelectedTemplate(): void
+    {
+        if (! $this->selectedTemplateId) {
+            return;
+        }
+
+        abort_unless(
+            $this->business,
+            403
+        );
+
+        $template = QuoteTemplate::query()
+            ->where(
+                'business_id',
+                $this->business->id
+            )
+            ->with([
+                'items' => fn ($query) =>
+                    $query->orderBy('sort_order'),
+            ])
+            ->findOrFail(
+                $this->selectedTemplateId
+            );
+
+
+        $this->title =
+            $template->title;
+
+        $this->description =
+            $template->description ?? '';
+
+        $this->discount =
+            (string) $template->discount;
+
+        $this->notes =
+            $template->notes ?? '';
+
+        $this->validUntil = now()
+            ->addDays(
+                $template->validity_days ?? 7
+            )
+            ->format('Y-m-d');
+
+
+        $this->items = $template
+            ->items
+            ->map(
+                fn ($item) => [
+                    'type' =>
+                        $item->type,
+
+                    'description' =>
+                        $item->description,
+
+                    'quantity' =>
+                        (float) $item->quantity,
+
+                    'unit' =>
+                        $item->unit,
+
+                    'unit_price' =>
+                        (float) $item->unit_price,
+                ]
+            )
+            ->values()
+            ->all();
+
+
+        $this->appliedTemplateName =
+            $template->name;
+
+        $this->showItemForm = false;
+
+        $this->resetItemForm();
+
+        $this->resetValidation([
+            'title',
+            'description',
+            'validUntil',
+            'discount',
+            'notes',
+            'items',
+        ]);
+    }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -188,9 +560,18 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
 
     public function saveNewClient(): void
     {
-        abort_unless($this->business, 403);
+        /* FECHOU: NORMALIZAÇÃO DE CAMPOS */
+        $this->newClientDocument =
+            BrazilianInput::document(
+                $this->newClientDocument
+            ) ?? '';
 
-        $validated = $this->validate([
+        $this->newClientWhatsapp =
+            BrazilianInput::phone(
+                $this->newClientWhatsapp
+            ) ?? '';
+
+$validated = $this->validate([
             'newClientName' => [
                 'required',
                 'string',
@@ -347,8 +728,50 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
         ]);
     }
 
+    public function itemUnitOptions(): array
+    {
+        return match ($this->itemType) {
+            'service' => [
+                'serviço' => 'Serviço',
+                'hora' => 'Hora',
+                'dia' => 'Dia',
+                'un' => 'Unidade',
+                'm' => 'Metro',
+                'm²' => 'Metro quadrado',
+                'm³' => 'Metro cúbico',
+            ],
+
+            'material' => [
+                'un' => 'Unidade',
+                'm' => 'Metro',
+                'm²' => 'Metro quadrado',
+                'm³' => 'Metro cúbico',
+                'kg' => 'Quilograma',
+                'l' => 'Litro',
+                'pct' => 'Pacote',
+                'cx' => 'Caixa',
+            ],
+
+            default => [
+                'un' => 'Unidade',
+                'serviço' => 'Serviço',
+                'hora' => 'Hora',
+                'dia' => 'Dia',
+                'm' => 'Metro',
+                'm²' => 'Metro quadrado',
+                'm³' => 'Metro cúbico',
+                'kg' => 'Quilograma',
+                'l' => 'Litro',
+                'pct' => 'Pacote',
+                'cx' => 'Caixa',
+            ],
+        };
+    }
+
     public function saveItem(): void
     {
+        $allowedUnits = array_keys($this->itemUnitOptions());
+
         $validated = $this->validate([
             'itemType' => [
                 'required',
@@ -371,6 +794,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                 'required',
                 'string',
                 'max:20',
+                'in:' . implode(',', $allowedUnits),
             ],
 
             'itemUnitPrice' => [
@@ -388,11 +812,23 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
             'itemQuantity.gt' =>
             'A quantidade deve ser maior que zero.',
 
+            'itemQuantity.numeric' =>
+            'Informe uma quantidade válida.',
+
             'itemUnit.required' =>
             'Informe a unidade.',
 
+            'itemUnit.in' =>
+            'Selecione uma unidade compatível com o tipo do item.',
+
             'itemUnitPrice.required' =>
             'Informe o valor unitário.',
+
+            'itemUnitPrice.numeric' =>
+            'Informe um valor unitário válido.',
+
+            'itemUnitPrice.min' =>
+            'O valor unitário não pode ser negativo.',
         ]);
 
         $item = [
@@ -535,13 +971,26 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
 
     /*
     |--------------------------------------------------------------------------
-    | Salvar orçamento
+    | Salvar proposta
     |--------------------------------------------------------------------------
     */
 
     public function save()
     {
         abort_unless($this->business, 403);
+
+        /*
+         * Evita que o usuário preencha/salve uma nova proposta
+         * quando a franquia do plano já estiver esgotada.
+         */
+        if (! app(SubscriptionService::class)->canCreateQuote($this->business)) {
+            $this->addError(
+                'plan',
+                'Você atingiu o limite de propostas do seu plano neste ciclo.'
+            );
+
+            return;
+        }
 
         $validated = $this->validate([
             'clientId' => [
@@ -564,6 +1013,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
             'validUntil' => [
                 'nullable',
                 'date',
+                'after_or_equal:today',
             ],
 
             'discount' => [
@@ -617,13 +1067,40 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
             'Selecione um cliente.',
 
             'title.required' =>
-            'Informe o título do orçamento.',
+            'Informe o título da proposta.',
 
             'items.required' =>
             'Adicione pelo menos um item.',
 
             'items.min' =>
             'Adicione pelo menos um item.',
+
+            /* UX VALIDATION MESSAGES - PROPOSTA */
+
+            'clientId.integer' =>
+            'Selecione um cliente válido.',
+
+            'title.max' =>
+            'O título pode ter no máximo 255 caracteres.',
+
+            'description.max' =>
+            'A descrição pode ter no máximo 5.000 caracteres.',
+
+            'validUntil.date' =>
+            'Informe uma data de validade válida.',
+
+            'validUntil.after_or_equal' =>
+            'A validade não pode estar no passado.',
+
+            'discount.numeric' =>
+            'Informe um desconto válido.',
+
+            'discount.min' =>
+            'O desconto não pode ser negativo.',
+
+            'notes.max' =>
+            'As condições e observações podem ter no máximo 5.000 caracteres.',
+
         ]);
 
         /*
@@ -637,9 +1114,27 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
         $quote = DB::transaction(function () use ($validated, $client) {
 
             /*
+             * Serializa a criação de propostas da empresa.
+             *
+             * Assim, duas abas tentando criar a última proposta
+             * disponível ao mesmo tempo não ultrapassam a franquia.
+             */
+            $business = Business::query()
+                ->whereKey($this->business->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (! app(SubscriptionService::class)->canCreateQuote($business)) {
+                throw ValidationException::withMessages([
+                    'plan' =>
+                        'Você atingiu o limite de propostas do seu plano neste ciclo.',
+                ]);
+            }
+
+            /*
              * Próximo número sequencial da empresa.
              */
-            $lastQuote = $this->business
+            $lastQuote = $business
                 ->quotes()
                 ->withTrashed()
                 ->lockForUpdate()
@@ -696,7 +1191,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                 )
             );
 
-            $quote = $this->business
+            $quote = $business
                 ->quotes()
                 ->create([
                     'client_id' =>
@@ -747,8 +1242,10 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
 
         session()->flash(
             'success',
-            'Orçamento criado com sucesso.'
+            'Proposta criada com sucesso.'
         );
+
+        session()->flash('quote_created', true);
 
         return $this->redirect(
             route('quotes.show', $quote->id),
@@ -767,7 +1264,9 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
     <div>
 
         <a
-            href="{{ route('quotes.index') }}"
+            href="{{ $this->hasExistingQuotes
+                ? route('quotes.index')
+                : route('dashboard') }}"
             wire:navigate
             class="
                 inline-flex items-center gap-2
@@ -791,7 +1290,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                     d="M15 18l-6-6 6-6" />
             </svg>
 
-            Voltar para orçamentos
+            {{ $this->hasExistingQuotes ? 'Voltar para propostas' : 'Voltar ao Dashboard' }}
         </a>
 
 
@@ -803,7 +1302,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                 text-zinc-950
                 dark:text-white
             ">
-            Novo orçamento
+            Nova proposta
         </h1>
 
         <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -814,10 +1313,547 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
 
 
     {{-- ========================================================= --}}
+    {{-- LIMITE DO PLANO --}}
+    {{-- ========================================================= --}}
+
+    @if (! $this->canCreateQuote)
+
+        <div
+            class="
+                flex flex-col gap-4
+                rounded-2xl
+                border border-amber-200
+                bg-amber-50
+                p-5
+
+                sm:flex-row
+                sm:items-center
+                sm:justify-between
+
+                dark:border-amber-900/70
+                dark:bg-amber-950/30
+            "
+        >
+            <div class="flex items-start gap-3">
+
+                <div
+                    class="
+                        flex size-10 shrink-0
+                        items-center justify-center
+                        rounded-xl
+                        bg-amber-100
+                        text-amber-700
+
+                        dark:bg-amber-900/50
+                        dark:text-amber-300
+                    "
+                >
+                    <svg
+                        class="size-5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M12 9v4m0 4h.01M10.3 4.3 2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z"
+                        />
+                    </svg>
+                </div>
+
+                <div>
+                    <p class="font-semibold text-amber-900 dark:text-amber-200">
+                        Limite de propostas atingido
+                    </p>
+
+                    <p class="mt-1 text-sm leading-6 text-amber-800/80 dark:text-amber-300/80">
+                        @if ($this->quoteLimit)
+                            Seu plano permite {{ $this->quoteLimit }}
+                            {{ $this->quoteLimit === 1 ? 'proposta' : 'propostas' }}
+                            por ciclo.
+                        @else
+                            Seu plano não permite criar uma nova proposta neste momento.
+                        @endif
+
+                        Conheça o Fechou Pro para criar propostas sem limite.
+                    </p>
+                </div>
+
+            </div>
+
+            <a
+                href="{{ route('settings.subscription') }}"
+                wire:navigate
+                class="
+                    inline-flex shrink-0
+                    items-center justify-center
+                    rounded-lg
+                    bg-amber-600
+                    px-4 py-2.5
+                    text-sm font-semibold
+                    text-white
+                    shadow-sm
+                    transition
+                    hover:bg-amber-700
+
+                    dark:bg-amber-500
+                    dark:text-zinc-950
+                    dark:hover:bg-amber-400
+                "
+            >
+                Conhecer o Pro
+            </a>
+        </div>
+
+    @elseif ($this->quotesRemaining !== null)
+
+        <div class="text-sm text-zinc-500 dark:text-zinc-400">
+            Você ainda pode criar
+            <strong class="font-semibold text-zinc-700 dark:text-zinc-200">
+                {{ $this->quotesRemaining }}
+                {{ $this->quotesRemaining === 1 ? 'proposta' : 'propostas' }}
+            </strong>
+            neste ciclo.
+        </div>
+
+    @endif
+
+
+    @error('plan')
+
+        <div
+            class="
+                rounded-xl
+                border border-red-200
+                bg-red-50
+                px-4 py-3
+                text-sm font-medium
+                text-red-700
+
+                dark:border-red-900/70
+                dark:bg-red-950/30
+                dark:text-red-300
+            "
+        >
+            {{ $message }}
+        </div>
+
+    @enderror
+
+
+    {{-- ========================================================= --}}
+    {{-- MODELO DE PROPOSTA --}}
+    {{-- ========================================================= --}}
+
+    <section
+        data-quote-template-selector
+        class="
+            rounded-xl
+            border border-zinc-200
+            bg-zinc-50/70
+            p-4
+
+            dark:border-zinc-800
+            dark:bg-zinc-900/40
+        "
+    >
+
+        <div
+            class="
+                flex flex-col gap-2
+
+                sm:flex-row
+                sm:items-center
+                sm:justify-between
+            "
+        >
+
+            <div class="min-w-0 flex-1">
+
+                <div class="flex flex-wrap items-center gap-2">
+
+                    <h2
+                        class="
+                            font-semibold
+                            text-zinc-950
+                            dark:text-white
+                        "
+                    >
+                        Começar com um modelo
+                    </h2>
+
+                    <span
+                        class="
+                            rounded-full
+                            bg-violet-100
+                            px-2 py-0.5
+                            text-[10px] font-bold
+                            text-violet-700
+
+                            dark:bg-violet-950
+                            dark:text-violet-300
+                        "
+                    >
+                        OPCIONAL
+                    </span>
+
+                </div>
+
+                <p
+                    class="
+                        mt-1
+                        text-sm leading-6
+                        text-zinc-500
+                        dark:text-zinc-400
+                    "
+                >
+                    Preencha título, descrição e itens
+                    automaticamente. Tudo continua editável.
+                </p>
+
+            </div>
+
+
+            <a
+                href="{{ route('quote-templates.index') }}"
+                wire:navigate
+                class="
+                    shrink-0
+                    text-sm font-semibold
+                    text-emerald-600
+                    hover:text-emerald-700
+
+                    dark:text-emerald-400
+                    dark:hover:text-emerald-300
+                "
+            >
+                Gerenciar modelos
+            </a>
+
+        </div>
+
+
+        @if ($this->quoteTemplates->isNotEmpty())
+
+            <div
+                class="
+                    mt-3
+                    flex flex-col gap-2
+
+                    sm:flex-row
+                    sm:items-center
+                "
+            >
+
+                <div class="min-w-0 flex-1">
+
+                    <label
+                        class="sr-only"
+                    >
+                        Modelo
+                    </label>
+
+                    <select
+                        wire:model.live="selectedTemplateId"
+                        class="
+                            w-full rounded-lg
+
+                            border border-zinc-300
+                            bg-white
+
+                            px-3 py-2.5
+
+                            text-sm
+                            text-zinc-900
+
+                            dark:border-zinc-700
+                            dark:bg-zinc-950
+                            dark:text-white
+                        "
+                    >
+                        <option value="">
+                            Selecione um modelo
+                        </option>
+
+                        @foreach (
+                            $this->quoteTemplates
+                            as $template
+                        )
+
+                            <option
+                                value="{{ $template->id }}"
+                            >
+                                {{ $template->name }}
+                                ·
+                                {{ $template->items_count }}
+                                {{ $template->items_count === 1
+                                    ? 'item'
+                                    : 'itens' }}
+                            </option>
+
+                        @endforeach
+
+                    </select>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    wire:click="applySelectedTemplate"
+                    @disabled(! $selectedTemplateId)
+                    class="
+                        inline-flex
+                        items-center
+                        justify-center
+
+                        rounded-lg
+
+                        bg-violet-600
+
+                        px-4 py-2.5
+
+                        text-sm font-semibold
+                        text-white
+
+                        transition
+
+                        hover:bg-violet-700
+
+                        disabled:cursor-not-allowed
+                        disabled:opacity-40
+                    "
+                >
+                    Usar modelo
+                </button>
+
+            </div>
+
+
+            @if ($appliedTemplateName)
+
+                <div
+                    class="
+                        mt-2
+                        text-xs font-medium
+                        text-emerald-700
+
+                        dark:text-emerald-300
+                    "
+                >
+                    Modelo
+                    <strong>
+                        {{ $appliedTemplateName }}
+                    </strong>
+                    aplicado. Você pode alterar qualquer campo.
+                </div>
+
+            @endif
+
+        @else
+
+            <div
+                class="
+                    mt-3
+                    text-sm
+                    text-zinc-500
+
+                    dark:text-zinc-400
+                "
+            >
+                Você ainda não possui modelos.
+                Crie um para reutilizar serviços,
+                materiais e textos frequentes.
+            </div>
+
+        @endif
+
+    </section>
+
+
+    @if ($duplicateSourceNumber)
+
+        <div
+            data-duplicate-source
+            class="
+                flex
+                flex-wrap
+                items-center
+                gap-2
+
+                rounded-lg
+
+                border border-blue-200
+                border-l-4 border-l-blue-500
+
+                bg-blue-50/70
+
+                px-4 py-2.5
+
+                text-sm
+                text-zinc-700
+
+                dark:border-blue-950
+                dark:border-l-blue-500
+                dark:bg-blue-950/20
+                dark:text-zinc-300
+            "
+        >
+            <span
+                class="
+                    rounded-full
+                    bg-blue-100
+                    px-2 py-0.5
+                    text-[10px]
+                    font-bold
+                    tracking-wide
+                    text-blue-700
+
+                    dark:bg-blue-950
+                    dark:text-blue-300
+                "
+            >
+                DUPLICADA
+            </span>
+
+            <span>
+                Baseada na proposta
+
+                <strong
+                    class="
+                        font-semibold
+                        text-zinc-950
+                        dark:text-white
+                    "
+                >
+                    #{{ $duplicateSourceNumber }}
+                </strong>
+
+                <span class="text-zinc-400 dark:text-zinc-600">
+                    ·
+                </span>
+
+                Cliente não copiado.
+                Selecione o cliente e revise os dados.
+            </span>
+        </div>
+
+    @endif
+
+
+    {{-- ========================================================= --}}
     {{-- FORMULÁRIO --}}
     {{-- ========================================================= --}}
 
     <form wire:submit="save">
+
+
+        {{-- ===================================================== --}}
+        {{-- RESUMO DE ERROS DA PROPOSTA --}}
+        {{-- ===================================================== --}}
+
+        @if ($errors->hasAny([
+            'clientId',
+            'title',
+            'description',
+            'validUntil',
+            'discount',
+            'notes',
+            'items',
+        ]))
+
+            <div
+                role="alert"
+                class="
+                    mb-6
+                    rounded-2xl
+                    border border-red-200
+                    bg-red-50
+                    px-5 py-4
+                    text-red-800
+
+                    dark:border-red-900/70
+                    dark:bg-red-950/30
+                    dark:text-red-200
+                "
+            >
+                <div class="flex items-start gap-3">
+
+                    <div
+                        class="
+                            mt-0.5 flex size-9 shrink-0
+                            items-center justify-center
+                            rounded-xl
+                            bg-red-100
+                            text-red-700
+
+                            dark:bg-red-500/10
+                            dark:text-red-300
+                        "
+                    >
+                        <svg
+                            class="size-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            aria-hidden="true"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M12 9v4m0 4h.01M10.3 4.3 2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z"
+                            />
+                        </svg>
+                    </div>
+
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold">
+                            Revise os campos abaixo
+                        </p>
+
+                        <p class="mt-1 text-sm text-red-700/90 dark:text-red-200/80">
+                            Não foi possível criar a proposta porque algumas
+                            informações precisam ser corrigidas.
+                        </p>
+
+                        <ul class="mt-3 space-y-1 text-sm">
+                            @error('clientId')
+                                <li>• {{ $message }}</li>
+                            @enderror
+
+                            @error('title')
+                                <li>• {{ $message }}</li>
+                            @enderror
+
+                            @error('description')
+                                <li>• {{ $message }}</li>
+                            @enderror
+
+                            @error('validUntil')
+                                <li>• {{ $message }}</li>
+                            @enderror
+
+                            @error('discount')
+                                <li>• {{ $message }}</li>
+                            @enderror
+
+                            @error('notes')
+                                <li>• {{ $message }}</li>
+                            @enderror
+
+                            @error('items')
+                                <li>• {{ $message }}</li>
+                            @enderror
+                        </ul>
+                    </div>
+
+                </div>
+            </div>
+
+        @endif
 
         <div
             class="
@@ -880,7 +1916,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                             <div>
 
                                 <h2 class="font-semibold text-zinc-950 dark:text-white">
-                                    Dados do orçamento
+                                    Dados da proposta
                                 </h2>
 
                                 <p class="text-sm text-zinc-500 dark:text-zinc-400">
@@ -1310,7 +2346,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                                         text-zinc-500
                                                         dark:text-zinc-400
                                                     ">
-                                            Cadastre o cliente sem sair deste orçamento.
+                                            Cadastre o cliente sem sair desta proposta.
                                         </p>
 
 
@@ -1454,6 +2490,13 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                     dark:text-white
                                 ">
 
+                            {{-- INLINE ERROR - validUntil --}}
+                            @error('validUntil')
+                                <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">
+                                    {{ $message }}
+                                </p>
+                            @enderror
+
                         </div>
 
 
@@ -1496,7 +2539,15 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                     dark:border-zinc-700
                                     dark:bg-zinc-950
                                     dark:text-white
-                                "></textarea>
+                                "
+                                maxlength="5000"></textarea>
+
+                            {{-- INLINE ERROR - description --}}
+                            @error('description')
+                                <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">
+                                    {{ $message }}
+                                </p>
+                            @enderror
 
                         </div>
 
@@ -1667,6 +2718,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                     @if ($showItemForm)
 
                     <div
+                        wire:key="quote-item-form-{{ $itemType }}-{{ $editingItemIndex ?? 'new' }}"
                         class="
                                 border-b border-zinc-200
 
@@ -1733,6 +2785,34 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                         </div>
 
 
+
+                        {{-- ERROS DO ITEM - V2 --}}
+                        @if ($errors->hasAny([
+                            'itemDescription',
+                            'itemQuantity',
+                            'itemUnit',
+                            'itemUnitPrice',
+                        ]))
+                            <div class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-300">
+                                <p class="font-semibold">Corrija os dados do item</p>
+
+                                <ul class="mt-1 space-y-0.5">
+                                    @error('itemDescription')
+                                        <li>• {{ $message }}</li>
+                                    @enderror
+                                    @error('itemQuantity')
+                                        <li>• {{ $message }}</li>
+                                    @enderror
+                                    @error('itemUnit')
+                                        <li>• {{ $message }}</li>
+                                    @enderror
+                                    @error('itemUnitPrice')
+                                        <li>• {{ $message }}</li>
+                                    @enderror
+                                </ul>
+                            </div>
+                        @endif
+
                         <div class="grid gap-4 lg:grid-cols-12">
 
                             <div class="lg:col-span-5">
@@ -1790,7 +2870,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                             text-zinc-700
                                             dark:text-zinc-300
                                         ">
-                                    Quantidade
+                                    Quantidade *
                                 </label>
 
                                 <input
@@ -1799,7 +2879,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                     min="0.001"
                                     step="0.001"
 
-                                    wire:model.live.debounce.200ms="itemQuantity"
+                                    wire:model="itemQuantity"
 
                                     class="
                                             w-full rounded-lg
@@ -1817,6 +2897,13 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                             dark:bg-zinc-900
                                             dark:text-white
                                         ">
+
+                                {{-- ITEM INLINE ERROR - itemQuantity --}}
+                                @error('itemQuantity')
+                                    <p class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                        {{ $message }}
+                                    </p>
+                                @enderror
 
                             </div>
 
@@ -1830,7 +2917,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                             text-zinc-700
                                             dark:text-zinc-300
                                         ">
-                                    Unidade
+                                    Unidade *
                                 </label>
 
                                 <select
@@ -1838,32 +2925,28 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
 
                                     class="
                                             w-full rounded-lg
-
                                             border border-zinc-300
-
                                             bg-white
-
                                             px-3 py-2.5
-
                                             text-sm
                                             text-zinc-900
-
                                             dark:border-zinc-700
                                             dark:bg-zinc-900
                                             dark:text-white
                                         ">
-                                    <option value="un">un</option>
-                                    <option value="serviço">serviço</option>
-                                    <option value="hora">hora</option>
-                                    <option value="dia">dia</option>
-                                    <option value="m">metro</option>
-                                    <option value="m²">m²</option>
-                                    <option value="m³">m³</option>
-                                    <option value="kg">kg</option>
-                                    <option value="l">litro</option>
-                                    <option value="pct">pacote</option>
-                                    <option value="cx">caixa</option>
+
+                                    @foreach ($this->itemUnitOptions() as $value => $label)
+                                        <option value="{{ $value }}">{{ $label }}</option>
+                                    @endforeach
+
                                 </select>
+
+                                {{-- ITEM INLINE ERROR - itemUnit --}}
+                                @error('itemUnit')
+                                    <p class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                        {{ $message }}
+                                    </p>
+                                @enderror
 
                             </div>
 
@@ -1877,7 +2960,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                             text-zinc-700
                                             dark:text-zinc-300
                                         ">
-                                    Valor unitário
+                                    Valor unitário *
                                 </label>
 
                                 <input
@@ -1886,7 +2969,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                     min="0"
                                     step="0.01"
 
-                                    wire:model.live.debounce.200ms="itemUnitPrice"
+                                    wire:model="itemUnitPrice"
 
                                     class="
                                             w-full rounded-lg
@@ -1903,7 +2986,16 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                             dark:border-zinc-700
                                             dark:bg-zinc-900
                                             dark:text-white
-                                        ">
+                                        "
+                                    inputmode="decimal"
+                                >
+
+                                {{-- ITEM INLINE ERROR - itemUnitPrice --}}
+                                @error('itemUnitPrice')
+                                    <p class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                        {{ $message }}
+                                    </p>
+                                @enderror
 
                             </div>
 
@@ -2004,7 +3096,7 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
 
                                     {{ $editingItemIndex !== null
                                             ? 'Salvar alterações'
-                                            : 'Adicionar ao orçamento'
+                                            : 'Adicionar à proposta'
                                         }}
 
                                 </button>
@@ -2303,6 +3395,13 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                 dark:text-white
                             "></textarea>
 
+                            {{-- INLINE ERROR - notes --}}
+                            @error('notes')
+                                <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">
+                                    {{ $message }}
+                                </p>
+                            @enderror
+
                     </div>
 
                 </section>
@@ -2424,7 +3523,16 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                     dark:border-zinc-700
                                     dark:bg-zinc-950
                                     dark:text-white
-                                ">
+                                "
+                                    inputmode="decimal"
+                                >
+
+                            {{-- INLINE ERROR - discount --}}
+                            @error('discount')
+                                <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">
+                                    {{ $message }}
+                                </p>
+                            @enderror
 
                         </div>
 
@@ -2470,55 +3578,107 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
 
                 <div class="mt-6 space-y-2">
 
-                    <button
-                        type="submit"
+                    @if ($this->canCreateQuote)
 
-                        wire:loading.attr="disabled"
+                        <button
+                            type="submit"
 
-                        class="
-                            inline-flex w-full
-                            items-center justify-center
+                            wire:loading.attr="disabled"
+                            wire:target="save"
 
-                            rounded-lg
+                            class="
+                                inline-flex w-full
+                                items-center justify-center
 
-                            bg-emerald-600
+                                rounded-lg
 
-                            px-4 py-3
+                                bg-emerald-600
 
-                            text-sm font-semibold
-                            text-white
+                                px-4 py-3
 
-                            shadow-sm
+                                text-sm font-semibold
+                                text-white
 
-                            transition
+                                shadow-sm
 
-                            hover:bg-emerald-700
+                                transition
 
-                            disabled:cursor-not-allowed
-                            disabled:opacity-60
+                                hover:bg-emerald-700
 
-                            dark:bg-emerald-500
-                            dark:text-zinc-950
-                            dark:hover:bg-emerald-400
-                        ">
+                                disabled:cursor-not-allowed
+                                disabled:opacity-60
 
-                        <span
-                            wire:loading.remove
-                            wire:target="save">
-                            Criar orçamento
-                        </span>
+                                dark:bg-emerald-500
+                                dark:text-zinc-950
+                                dark:hover:bg-emerald-400
+                            ">
 
-                        <span
-                            wire:loading
-                            wire:target="save">
-                            Criando...
-                        </span>
+                            <span
+                                wire:loading.remove
+                                wire:target="save">
+                                Criar proposta
+                            </span>
 
-                    </button>
+                            <span
+                                wire:loading
+                                wire:target="save">
+                                Criando...
+                            </span>
+
+                        </button>
+
+                    @else
+
+                        <a
+                            href="{{ route('settings.subscription') }}"
+                            wire:navigate
+                            class="
+                                inline-flex w-full
+                                items-center justify-center
+                                gap-2
+
+                                rounded-lg
+
+                                bg-violet-600
+
+                                px-4 py-3
+
+                                text-sm font-semibold
+                                text-white
+
+                                shadow-sm
+
+                                transition
+
+                                hover:bg-violet-700
+
+                                dark:bg-violet-500
+                                dark:text-zinc-950
+                                dark:hover:bg-violet-400
+                            "
+                        >
+                            Conhecer o Fechou Pro
+
+                            <span
+                                class="
+                                    rounded-full
+                                    bg-white/20
+                                    px-1.5 py-0.5
+                                    text-[10px]
+                                    font-bold
+                                "
+                            >
+                                PRO
+                            </span>
+                        </a>
+
+                    @endif
 
 
                     <a
-                        href="{{ route('quotes.index') }}"
+                        href="{{ $this->hasExistingQuotes
+                ? route('quotes.index')
+                : route('dashboard') }}"
                         wire:navigate
 
                         class="
@@ -2809,7 +3969,12 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                 dark:border-zinc-700
                                 dark:bg-zinc-950
                                 dark:text-white
-                            ">
+                            "
+                                    data-fechou-mask="phone"
+                                    inputmode="tel"
+                                    maxlength="15"
+                                    autocomplete="tel"
+                                >
 
                     <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                         Facilita o envio do orçamento pelo WhatsApp.
@@ -2858,7 +4023,12 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
                                     dark:border-zinc-700
                                     dark:bg-zinc-950
                                     dark:text-white
-                                ">
+                                "
+                                    data-fechou-mask="document"
+                                    inputmode="numeric"
+                                    maxlength="18"
+                                    autocomplete="off"
+                                >
 
 
                         @error('newClientDocument')
@@ -3033,5 +4203,3 @@ new #[Title('Novo orçamento | Fechou')] class extends Component
     </div>
 
     @endif
-
-</div>

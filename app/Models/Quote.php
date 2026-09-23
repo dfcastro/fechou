@@ -32,6 +32,12 @@ class Quote extends Model
         'notes',
         'root_quote_id',
         'version',
+        'payment_status',
+        'paid_at',
+        'payment_collection_enabled',
+        'execution_status',
+        'execution_started_at',
+        'completed_at',
     ];
 
     protected function casts(): array
@@ -40,12 +46,22 @@ class Quote extends Model
             'subtotal' => 'decimal:2',
             'discount' => 'decimal:2',
             'total' => 'decimal:2',
+
             'valid_until' => 'date',
             'sent_at' => 'datetime',
             'first_viewed_at' => 'datetime',
             'accepted_at' => 'datetime',
             'rejected_at' => 'datetime',
+
             'version' => 'integer',
+
+            'payment_status' => 'string',
+            'paid_at' => 'datetime',
+            'payment_collection_enabled' => 'boolean',
+
+            'execution_status' => 'string',
+            'execution_started_at' => 'datetime',
+            'completed_at' => 'datetime',
         ];
     }
 

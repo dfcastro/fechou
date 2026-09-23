@@ -11,7 +11,7 @@
 
     <style>
         @page {
-            margin: 28px 34px 35px 34px;
+            margin: 25px 34px 32px 34px;
         }
 
         * {
@@ -45,8 +45,8 @@
 
             border-bottom: 2px solid #059669;
 
-            padding-bottom: 18px;
-            margin-bottom: 22px;
+            padding-bottom: 14px;
+            margin-bottom: 18px;
         }
 
         .header td {
@@ -94,6 +94,8 @@
 
         .quote-number {
             text-align: right;
+
+            padding-left: 18px;
         }
 
         .label-uppercase {
@@ -103,7 +105,7 @@
             text-transform: uppercase;
             letter-spacing: 0.8px;
 
-            color: #a1a1aa;
+            color: #71717a;
         }
 
         .number {
@@ -143,7 +145,7 @@
         }
 
         .quote-title {
-            margin-top: 15px;
+            margin-top: 12px;
             margin-bottom: 0;
 
             font-size: 15px;
@@ -153,13 +155,14 @@
         }
 
         .description {
-            margin-top: 6px;
+            margin-top: 4px;
 
             line-height: 1.6;
 
             color: #52525b;
 
             white-space: pre-line;
+            word-wrap: break-word;
         }
 
         /*
@@ -171,8 +174,8 @@
         .info-grid {
             width: 100%;
 
-            margin-top: 18px;
-            margin-bottom: 24px;
+            margin-top: 14px;
+            margin-bottom: 18px;
 
             border-top: 1px solid #e4e4e7;
             border-bottom: 1px solid #e4e4e7;
@@ -181,7 +184,7 @@
         .info-grid td {
             width: 33.33%;
 
-            padding: 10px 5px;
+            padding: 8px 5px;
         }
 
         .info-grid td:first-child {
@@ -212,7 +215,7 @@
         */
 
         .section-title {
-            margin: 0 0 10px 0;
+            margin: 0 0 8px 0;
 
             font-size: 12px;
             font-weight: bold;
@@ -233,11 +236,11 @@
         }
 
         .items thead {
-            background: #f4f4f5;
+            background: #eeeeef;
         }
 
         .items th {
-            padding: 9px 8px;
+            padding: 8px 8px;
 
             border-bottom: 1px solid #d4d4d8;
 
@@ -253,11 +256,15 @@
         }
 
         .items td {
-            padding: 10px 8px;
+            padding: 7px 8px;
 
             border-bottom: 1px solid #eeeeef;
 
-            vertical-align: top;
+            vertical-align: middle;
+        }
+
+        .items tr {
+            page-break-inside: avoid;
         }
 
         .items .description-column {
@@ -291,13 +298,15 @@
         .item-description {
             font-weight: bold;
 
+            word-wrap: break-word;
+
             color: #27272a;
         }
 
         .item-type {
             display: inline-block;
 
-            margin-top: 4px;
+            margin-left: 6px;
 
             padding: 2px 5px;
 
@@ -307,6 +316,9 @@
 
             font-size: 7px;
             font-weight: bold;
+
+            line-height: 1.2;
+            vertical-align: middle;
 
             text-transform: uppercase;
 
@@ -322,15 +334,17 @@
         .totals-container {
             width: 100%;
 
-            margin-top: 22px;
+            margin-top: 12px;
+
+            page-break-inside: avoid;
         }
 
         .totals-spacer {
-            width: 53%;
+            width: 50%;
         }
 
         .totals {
-            width: 47%;
+            width: 50%;
         }
 
         .totals td {
@@ -354,7 +368,7 @@
         }
 
         .grand-total td {
-            padding-top: 11px;
+            padding-top: 10px;
 
             border-top: 1px solid #d4d4d8;
         }
@@ -369,8 +383,10 @@
         .grand-total-value {
             text-align: right;
 
-            font-size: 19px;
+            font-size: 20px;
             font-weight: bold;
+
+            white-space: nowrap;
 
             color: #059669;
         }
@@ -382,9 +398,11 @@
         */
 
         .notes {
-            margin-top: 26px;
+            margin-top: 14px;
 
             padding: 13px 14px;
+
+            page-break-inside: avoid;
 
             border: 1px solid #e4e4e7;
             border-radius: 6px;
@@ -418,9 +436,11 @@
         */
 
         .validity {
-            margin-top: 24px;
+            margin-top: 10px;
 
-            padding: 10px 13px;
+            padding: 8px 13px;
+
+            page-break-inside: avoid;
 
             border-left: 3px solid #059669;
 
@@ -440,15 +460,18 @@
         */
 
         .footer {
-            margin-top: 32px;
+            margin-top: 10px;
 
-            padding-top: 12px;
+            padding-top: 7px;
 
             border-top: 1px solid #e4e4e7;
 
             text-align: center;
 
-            font-size: 8px;
+            font-size: 7.5px;
+            line-height: 1.25;
+
+            page-break-inside: avoid;
 
             color: #a1a1aa;
         }
@@ -475,42 +498,39 @@
 
             <td style="width: 48px;">
 
+                {{-- O controller só envia logoDataUri quando o plano possui CUSTOM_BRANDING. --}}
                 @if ($logoDataUri)
 
-                <table>
-                    <tr>
-                        <td
-                            style="
-                    width: 80px;
-                    height: 48px;
-                    vertical-align: middle;
-                ">
-                            <img
-                                src="{{ $logoDataUri }}"
-                                style="
-                        max-width: 75px;
-                        max-height: 45px;
-                    "
-                                alt="">
-                        </td>
-                    </tr>
-                </table>
+                    <table>
+                        <tr>
+                            <td style="
+                        width: 80px;
+                        height: 48px;
+                        vertical-align: middle;
+                    ">
+                                <img src="{{ $logoDataUri }}" style="
+                            max-width: 75px;
+                            max-height: 45px;
+                        " alt="">
+                            </td>
+                        </tr>
+                    </table>
 
                 @else
 
-                <table>
-                    <tr>
-                        <td class="brand-box">
-                            {{ mb_strtoupper(
-                    mb_substr(
-                        $quote->business->name,
-                        0,
-                        1
-                    )
-                ) }}
-                        </td>
-                    </tr>
-                </table>
+                                <table>
+                                    <tr>
+                                        <td class="brand-box">
+                                            {{ mb_strtoupper(
+                        mb_substr(
+                            $quote->business->name,
+                            0,
+                            1
+                        )
+                    ) }}
+                                        </td>
+                                    </tr>
+                                </table>
 
                 @endif
 
@@ -527,63 +547,63 @@
                 <div class="business-details">
 
                     @if ($quote->business->document)
-                    {{ $quote->business->document }}
+                        {{ $quote->business->document }}
                     @endif
 
 
                     @if ($quote->business->phone || $quote->business->whatsapp)
 
-                    @if ($quote->business->document)
-                    &nbsp;&bull;&nbsp;
-                    @endif
+                                    @if ($quote->business->document)
+                                        &nbsp;&bull;&nbsp;
+                                    @endif
 
-                    {{ $quote->business->whatsapp
-                            ?: $quote->business->phone
-                        }}
+                                    {{ $quote->business->whatsapp
+                        ?: $quote->business->phone
+                                        }}
 
                     @endif
 
 
                     @if ($quote->business->email)
 
+                        @if (
+                                $quote->business->document
+                                || $quote->business->phone
+                                || $quote->business->whatsapp
+                            )
+                            <br>
+                        @endif
+
+                        {{ $quote->business->email }}
+
+                    @endif
+
+
                     @if (
-                    $quote->business->document
-                    || $quote->business->phone
-                    || $quote->business->whatsapp
-                    )
-                    <br>
-                    @endif
+                            $quote->business->address
+                            || $quote->business->city
+                        )
 
-                    {{ $quote->business->email }}
+                        <br>
 
-                    @endif
-
-
-                    @if (
-                    $quote->business->address
-                    || $quote->business->city
-                    )
-
-                    <br>
-
-                    @if ($quote->business->address)
-                    {{ $quote->business->address }}
-                    @endif
+                        @if ($quote->business->address)
+                            {{ $quote->business->address }}
+                        @endif
 
 
-                    @if ($quote->business->city)
+                        @if ($quote->business->city)
 
-                    @if ($quote->business->address)
-                    -
-                    @endif
+                            @if ($quote->business->address)
+                                -
+                            @endif
 
-                    {{ $quote->business->city }}
+                            {{ $quote->business->city }}
 
-                    @if ($quote->business->state)
-                    /{{ $quote->business->state }}
-                    @endif
+                            @if ($quote->business->state)
+                                /{{ $quote->business->state }}
+                            @endif
 
-                    @endif
+                        @endif
 
                     @endif
 
@@ -592,9 +612,7 @@
             </td>
 
 
-            <td
-                class="quote-number"
-                style="width: 145px;">
+            <td class="quote-number" style="width: 145px;">
 
                 <div class="label-uppercase">
                     Orçamento
@@ -602,11 +620,11 @@
 
                 <div class="number">
                     #{{ str_pad(
-                        $quote->number,
-                        4,
-                        '0',
-                        STR_PAD_LEFT
-                    ) }}
+    $quote->number,
+    4,
+    '0',
+    STR_PAD_LEFT
+) }}
                 </div>
 
             </td>
@@ -633,57 +651,57 @@
     {{-- Dados do cliente --}}
 
     @if (
-    $quote->client->document
-    || $quote->client->phone
-    || $quote->client->whatsapp
-    || $quote->client->email
-    )
-
-    <div style="
-            margin-top: 4px;
-            font-size: 9px;
-            color: #71717a;
-        ">
-
-        @if ($quote->client->document)
-
-        CPF/CNPJ:
-        {{ $quote->client->document }}
-
-        @endif
-
-
-        @if (
-        $quote->client->whatsapp
-        || $quote->client->phone
+            $quote->client->document
+            || $quote->client->phone
+            || $quote->client->whatsapp
+            || $quote->client->email
         )
 
-        @if ($quote->client->document)
-        &nbsp;&bull;&nbsp;
-        @endif
+        <div style="
+                margin-top: 4px;
+                font-size: 9px;
+                color: #71717a;
+            ">
 
-        {{ $quote->client->whatsapp
+            @if ($quote->client->document)
+
+                CPF/CNPJ:
+                {{ $quote->client->document }}
+
+            @endif
+
+
+            @if (
+                    $quote->client->whatsapp
+                    || $quote->client->phone
+                )
+
+                @if ($quote->client->document)
+                    &nbsp;&bull;&nbsp;
+                @endif
+
+                {{ $quote->client->whatsapp
                     ?: $quote->client->phone
-                }}
+                        }}
 
-        @endif
+            @endif
 
 
-        @if ($quote->client->email)
+            @if ($quote->client->email)
 
-        @if (
-        $quote->client->document
-        || $quote->client->whatsapp
-        || $quote->client->phone
-        )
-        &nbsp;&bull;&nbsp;
-        @endif
+                @if (
+                        $quote->client->document
+                        || $quote->client->whatsapp
+                        || $quote->client->phone
+                    )
+                    &nbsp;&bull;&nbsp;
+                @endif
 
-        {{ $quote->client->email }}
+                {{ $quote->client->email }}
 
-        @endif
+            @endif
 
-    </div>
+        </div>
 
     @endif
 
@@ -695,9 +713,9 @@
 
     @if ($quote->description)
 
-    <div class="description">
-        {{ $quote->description }}
-    </div>
+        <div class="description">
+            {{ $quote->description }}
+        </div>
 
     @endif
 
@@ -731,7 +749,7 @@
 
                 <span class="info-value">
                     {{ $quote->valid_until?->format('d/m/Y')
-                        ?? 'Sem prazo definido'
+    ?? 'Sem prazo definido'
                     }}
                 </span>
 
@@ -749,8 +767,8 @@
                     {{ $quote->items->count() }}
 
                     {{ $quote->items->count() === 1
-                        ? 'item'
-                        : 'itens'
+    ? 'item'
+    : 'itens'
                     }}
 
                 </span>
@@ -806,79 +824,77 @@
 
             @foreach ($quote->items as $item)
 
-            <tr>
+                        <tr>
 
-                <td class="description-column">
+                            <td class="description-column">
 
-                    <div class="item-description">
-                        {{ $item->description }}
-                    </div>
+                                {{-- ITEM TYPE INLINE PDF --}}
+                                <div class="item-description">
+                                    {{ $item->description }}
 
+                                    <span class="item-type">
+                                        {{ match ($item->type) {
+                    'service' => 'Serviço',
+                    'material' => 'Material',
+                    default => 'Outro',
+                } }}
+                                    </span>
+                                </div>
 
-                    <span class="item-type">
-
-                        {{ match ($item->type) {
-                                'service' => 'Serviço',
-                                'material' => 'Material',
-                                default => 'Outro',
-                            } }}
-
-                    </span>
-
-                </td>
+                            </td>
 
 
-                <td class="quantity-column">
+                            <td class="quantity-column">
 
-                    {{ rtrim(
-                            rtrim(
-                                number_format(
-                                    (float) $item->quantity,
-                                    3,
-                                    ',',
-                                    '.'
-                                ),
-                                '0'
-                            ),
-                            ','
-                        ) }}
-
-                </td>
-
-
-                <td class="unit-column">
-                    {{ $item->unit }}
-                </td>
-
-
-                <td class="price-column">
-
-                    R$ {{ number_format(
-                            (float) $item->unit_price,
-                            2,
+                                {{ rtrim(
+                    rtrim(
+                        number_format(
+                            (float) $item->quantity,
+                            3,
                             ',',
                             '.'
-                        ) }}
+                        ),
+                        '0'
+                    ),
+                    ','
+                ) }}
 
-                </td>
+                            </td>
 
 
-                <td class="total-column">
+                            <td class="unit-column">
+                                {{ $item->unit }}
+                            </td>
 
-                    <strong>
 
-                        R$ {{ number_format(
-                                (float) $item->total,
-                                2,
-                                ',',
-                                '.'
-                            ) }}
+                            <td class="price-column">
 
-                    </strong>
+                                R$ {{ number_format(
+                    (float) $item->unit_price,
+                    2,
+                    ',',
+                    '.'
+                ) }}
 
-                </td>
+                            </td>
 
-            </tr>
+
+                            <td class="total-column">
+
+                                <strong>
+
+                                    R$ {{ number_format(
+                    (float) $item->total,
+                    2,
+                    ',',
+                    '.'
+                ) }}
+
+                                </strong>
+
+                            </td>
+
+                        </tr>
 
             @endforeach
 
@@ -911,11 +927,11 @@
                         <td class="totals-value">
 
                             R$ {{ number_format(
-                                (float) $quote->subtotal,
-                                2,
-                                ',',
-                                '.'
-                            ) }}
+    (float) $quote->subtotal,
+    2,
+    ',',
+    '.'
+) }}
 
                         </td>
 
@@ -924,24 +940,24 @@
 
                     @if ((float) $quote->discount > 0)
 
-                    <tr>
+                                        <tr>
 
-                        <td class="totals-label">
-                            Desconto
-                        </td>
+                                            <td class="totals-label">
+                                                Desconto
+                                            </td>
 
-                        <td class="totals-value discount">
+                                            <td class="totals-value discount">
 
-                            - R$ {{ number_format(
-                                    (float) $quote->discount,
-                                    2,
-                                    ',',
-                                    '.'
-                                ) }}
+                                                - R$ {{ number_format(
+                            (float) $quote->discount,
+                            2,
+                            ',',
+                            '.'
+                        ) }}
 
-                        </td>
+                                            </td>
 
-                    </tr>
+                                        </tr>
 
                     @endif
 
@@ -955,11 +971,11 @@
                         <td class="grand-total-value">
 
                             R$ {{ number_format(
-                                (float) $quote->total,
-                                2,
-                                ',',
-                                '.'
-                            ) }}
+    (float) $quote->total,
+    2,
+    ',',
+    '.'
+) }}
 
                         </td>
 
@@ -980,18 +996,18 @@
 
     @if ($quote->notes)
 
-    <div class="notes">
+        <div class="notes">
 
-        <div class="notes-title">
-            Condições e observações
+            <div class="notes-title">
+                Condições e observações
+            </div>
+
+
+            <p class="notes-content">
+                {{ $quote->notes }}
+            </p>
+
         </div>
-
-
-        <p class="notes-content">
-            {{ $quote->notes }}
-        </p>
-
-    </div>
 
     @endif
 
@@ -1002,15 +1018,15 @@
 
     @if ($quote->valid_until)
 
-    <div class="validity">
+        <div class="validity">
 
-        Esta proposta é válida até
+            Esta proposta é válida até
 
-        <strong>
-            {{ $quote->valid_until->format('d/m/Y') }}
-        </strong>.
+            <strong>
+                {{ $quote->valid_until->format('d/m/Y') }}
+            </strong>
 
-    </div>
+        </div>
 
     @endif
 
@@ -1021,15 +1037,13 @@
 
     <div class="footer">
 
-        Proposta emitida por
-
         <span class="footer-brand">
             {{ $quote->business->name }}
         </span>
 
         &nbsp;&bull;&nbsp;
 
-        Orçamento digital gerado pelo Fechou
+        Documento gerado pelo Fechou
 
     </div>
 

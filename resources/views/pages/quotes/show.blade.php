@@ -1,14 +1,16 @@
 <?php
 
+use App\Enums\PlanFeature;
 use App\Models\Quote;
+use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Orçamento | Fechou')] class extends Component
-{
+new #[Title('Proposta | Fechou')]
+    class extends Component {
     public int $quoteId;
 
     /*
@@ -54,14 +56,31 @@ new #[Title('Orçamento | Fechou')] class extends Component
                 'client',
 
                 'items' => fn($query) =>
-                $query->orderBy('sort_order'),
+                    $query->orderBy('sort_order'),
 
                 'events' => fn($query) =>
-                $query->orderByDesc('created_at'),
+                    $query->orderByDesc('created_at'),
             ])
             ->whereKey($this->quoteId)
             ->firstOrFail();
     }
+
+    #[Computed]
+    public function canUseVersioning(): bool
+    {
+        $business = Auth::user()->business;
+
+        if (!$business) {
+            return false;
+        }
+
+        return app(SubscriptionService::class)
+            ->hasFeature(
+                $business,
+                PlanFeature::QUOTE_VERSIONING
+            );
+    }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -82,6 +101,19 @@ new #[Title('Orçamento | Fechou')] class extends Component
 
     /*
     |--------------------------------------------------------------------------
+    | Permissão para compartilhar
+    |--------------------------------------------------------------------------
+    */
+
+    #[Computed]
+    public function canShareQuote(): bool
+    {
+        return Auth::user()?->hasVerifiedEmail() === true;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
     | WhatsApp
     |--------------------------------------------------------------------------
     */
@@ -93,8 +125,8 @@ new #[Title('Orçamento | Fechou')] class extends Component
             '/\D+/',
             '',
             $this->quote->client->whatsapp
-                ?: $this->quote->client->phone
-                ?: ''
+            ?: $this->quote->client->phone
+            ?: ''
         );
 
         /*
@@ -102,7 +134,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
          */
         if (
             $phone
-            && ! str_starts_with($phone, '55')
+            && !str_starts_with($phone, '55')
         ) {
             $phone = '55' . $phone;
         }
@@ -114,10 +146,29 @@ new #[Title('Orçamento | Fechou')] class extends Component
             STR_PAD_LEFT
         );
 
+        $validity =
+            $this->quote->valid_until
+            ? $this->quote->valid_until->format('d/m/Y')
+            : null;
+
+        $total = number_format(
+            (float) $this->quote->total,
+            2,
+            ',',
+            '.'
+        );
+
         $message =
-            "Olá, {$this->quote->client->name}! "
-            . "Segue o orçamento #{$number} "
-            . "da {$this->quote->business->name}:\n\n"
+            "Olá, {$this->quote->client->name}! 👋\n\n"
+            . "Preparei a proposta #{$number} "
+            . "da {$this->quote->business->name}.\n"
+            . "{$this->quote->title}\n\n"
+            . "Valor: R$ {$total}"
+            . ($validity
+                ? "\nVálida até: {$validity}"
+                : '')
+            . "\n\n"
+            . "Você pode revisar e responder por aqui:\n"
             . $this->publicUrl;
 
         if ($phone) {
@@ -139,6 +190,11 @@ new #[Title('Orçamento | Fechou')] class extends Component
 
     public function markAsSent(): void
     {
+        /*
+         * Compartilhamento externo exige e-mail confirmado.
+         */
+        abort_unless(Auth::user()?->hasVerifiedEmail(), 403);
+
         $business = Auth::user()->business;
 
         abort_unless($business, 403);
@@ -187,6 +243,29 @@ new #[Title('Orçamento | Fechou')] class extends Component
 
         abort_unless($business, 403);
 
+        /*
+         * Versionamento é um recurso do plano Pro.
+         *
+         * A checagem também existe no servidor para impedir
+         * que a ação seja chamada manualmente pelo Livewire.
+         */
+        if (
+            !app(SubscriptionService::class)->hasFeature(
+                $business,
+                PlanFeature::QUOTE_VERSIONING
+            )
+        ) {
+            session()->flash(
+                'upgrade_required',
+                'O versionamento de propostas está disponível no Fechou Pro.'
+            );
+
+            return $this->redirect(
+                route('settings.subscription'),
+                navigate: true
+            );
+        }
+
         $newQuote = DB::transaction(function () use ($business) {
 
             /*
@@ -196,7 +275,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
                 ->quotes()
                 ->with([
                     'items' => fn($query) =>
-                    $query->orderBy('sort_order'),
+                        $query->orderBy('sort_order'),
                 ])
                 ->whereKey($this->quoteId)
                 ->lockForUpdate()
@@ -274,17 +353,17 @@ new #[Title('Orçamento | Fechou')] class extends Component
             if (
                 $source->valid_until
                 && $source->valid_until
-                ->copy()
-                ->endOfDay()
-                ->isFuture()
+                    ->copy()
+                    ->endOfDay()
+                    ->isFuture()
             ) {
                 $validUntil =
                     $source->valid_until->copy();
             } else {
                 $validUntil =
                     now()
-                    ->addDays(7)
-                    ->startOfDay();
+                        ->addDays(7)
+                        ->startOfDay();
             }
 
             /*
@@ -297,52 +376,52 @@ new #[Title('Orçamento | Fechou')] class extends Component
                 ->quotes()
                 ->create([
                     'client_id' =>
-                    $source->client_id,
+                        $source->client_id,
 
                     'root_quote_id' =>
-                    $rootId,
+                        $rootId,
 
                     'version' =>
-                    $nextVersion,
+                        $nextVersion,
 
                     'number' =>
-                    $nextNumber,
+                        $nextNumber,
 
                     'title' =>
-                    $source->title,
+                        $source->title,
 
                     'description' =>
-                    $source->description,
+                        $source->description,
 
                     'subtotal' =>
-                    $source->subtotal,
+                        $source->subtotal,
 
                     'discount' =>
-                    $source->discount,
+                        $source->discount,
 
                     'total' =>
-                    $source->total,
+                        $source->total,
 
                     'status' =>
-                    'draft',
+                        'draft',
 
                     'valid_until' =>
-                    $validUntil,
+                        $validUntil,
 
                     'notes' =>
-                    $source->notes,
+                        $source->notes,
 
                     'sent_at' =>
-                    null,
+                        null,
 
                     'first_viewed_at' =>
-                    null,
+                        null,
 
                     'accepted_at' =>
-                    null,
+                        null,
 
                     'rejected_at' =>
-                    null,
+                        null,
                 ]);
 
             /*
@@ -355,25 +434,25 @@ new #[Title('Orçamento | Fechou')] class extends Component
                         ->items
                         ->map(fn($item) => [
                             'type' =>
-                            $item->type,
+                                $item->type,
 
                             'description' =>
-                            $item->description,
+                                $item->description,
 
                             'quantity' =>
-                            $item->quantity,
+                                $item->quantity,
 
                             'unit' =>
-                            $item->unit,
+                                $item->unit,
 
                             'unit_price' =>
-                            $item->unit_price,
+                                $item->unit_price,
 
                             'total' =>
-                            $item->total,
+                                $item->total,
 
                             'sort_order' =>
-                            $item->sort_order,
+                                $item->sort_order,
                         ])
                         ->all()
                 );
@@ -385,17 +464,17 @@ new #[Title('Orçamento | Fechou')] class extends Component
                 ->events()
                 ->create([
                     'type' =>
-                    'created',
+                        'created',
 
                     'metadata' => [
                         'source_quote_id' =>
-                        $source->id,
+                            $source->id,
 
                         'source_quote_number' =>
-                        $source->number,
+                            $source->number,
 
                         'version' =>
-                        $nextVersion,
+                            $nextVersion,
                     ],
                 ]);
 
@@ -406,17 +485,17 @@ new #[Title('Orçamento | Fechou')] class extends Component
                 ->events()
                 ->create([
                     'type' =>
-                    'version_created',
+                        'version_created',
 
                     'metadata' => [
                         'new_quote_id' =>
-                        $newQuote->id,
+                            $newQuote->id,
 
                         'new_quote_number' =>
-                        $newQuote->number,
+                            $newQuote->number,
 
                         'version' =>
-                        $nextVersion,
+                            $nextVersion,
                     ],
                 ]);
 
@@ -452,6 +531,473 @@ new #[Title('Orçamento | Fechou')] class extends Component
             navigate: true
         );
     }
+    /*
+    |--------------------------------------------------------------------------
+    | Pós-aceite
+    |--------------------------------------------------------------------------
+    */
+
+    public function markAsPaid(): void
+    {
+        $business = Auth::user()->business;
+
+        abort_unless($business, 403);
+
+        DB::transaction(function () use ($business) {
+            $quote = $business
+                ->quotes()
+                ->whereKey($this->quoteId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($quote->status !== 'accepted') {
+                return;
+            }
+
+            if ($quote->payment_status === 'paid') {
+                return;
+            }
+
+            $quote->update([
+                'payment_status' => 'paid',
+                'paid_at' => now(),
+            ]);
+
+            $quote->events()->create([
+                'type' => 'payment_received',
+            ]);
+        });
+
+        unset($this->quote);
+
+        session()->flash(
+            'success',
+            'Pagamento marcado como recebido.'
+        );
+    }
+
+    public function startExecution(): void
+    {
+        $business = Auth::user()->business;
+
+        abort_unless($business, 403);
+
+        DB::transaction(function () use ($business) {
+            $quote = $business
+                ->quotes()
+                ->whereKey($this->quoteId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($quote->status !== 'accepted') {
+                return;
+            }
+
+            if (
+                !in_array(
+                    $quote->execution_status,
+                    [null, 'pending'],
+                    true
+                )
+            ) {
+                return;
+            }
+
+            $quote->update([
+                'execution_status' => 'in_progress',
+                'execution_started_at' => now(),
+                'completed_at' => null,
+            ]);
+
+            $quote->events()->create([
+                'type' => 'execution_started',
+            ]);
+        });
+
+        unset($this->quote);
+
+        session()->flash(
+            'success',
+            'Execução iniciada.'
+        );
+    }
+
+    public function completeExecution(): void
+    {
+        $business = Auth::user()->business;
+
+        abort_unless($business, 403);
+
+        DB::transaction(function () use ($business) {
+            $quote = $business
+                ->quotes()
+                ->whereKey($this->quoteId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($quote->status !== 'accepted') {
+                return;
+            }
+
+            if ($quote->execution_status !== 'in_progress') {
+                return;
+            }
+
+            $quote->update([
+                'execution_status' => 'completed',
+                'completed_at' => now(),
+            ]);
+
+            $quote->events()->create([
+                'type' => 'execution_completed',
+            ]);
+        });
+
+        unset($this->quote);
+
+        session()->flash(
+            'success',
+            'Execução concluída.'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cobrança opcional
+    |--------------------------------------------------------------------------
+    */
+
+    public function setPaymentCollection(
+        bool $enabled
+    ): void {
+
+        $business =
+            Auth::user()->business;
+
+        abort_unless(
+            $business,
+            403
+        );
+
+
+        DB::transaction(
+            function () use (
+                $business,
+                $enabled
+            ) {
+
+                $quote = $business
+                    ->quotes()
+                    ->whereKey(
+                        $this->quoteId
+                    )
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+
+                abort_unless(
+                    $quote->status
+                    === 'accepted',
+                    422
+                );
+
+
+                if (
+                    $enabled
+                    && ! $business
+                        ->payment_collection_enabled
+                ) {
+                    abort(
+                        422,
+                        'A cobrança está desativada para a empresa.'
+                    );
+                }
+
+
+                if (
+                    (bool) $quote
+                        ->payment_collection_enabled
+                    === $enabled
+                ) {
+                    return;
+                }
+
+
+                $quote->update([
+                    'payment_collection_enabled'
+                        => $enabled,
+                ]);
+            }
+        );
+
+
+        unset(
+            $this->quote
+        );
+
+
+        session()->flash(
+            'success',
+            $enabled
+                ? 'Cobrança ativada para esta proposta.'
+                : 'Cobrança desativada para esta proposta.'
+        );
+    }
+
+
+    public function paymentReminderMessage(): string
+    {
+        $business =
+            Auth::user()->business;
+
+        $quote =
+            $this->quote;
+
+
+        if (
+            ! $business
+            || $quote->status !== 'accepted'
+        ) {
+            return '';
+        }
+
+
+        $clientName =
+            trim(
+                (string) (
+                    $quote
+                        ->client
+                        ?->name
+                    ?? ''
+                )
+            );
+
+        if ($clientName === '') {
+            $clientName = 'cliente';
+        }
+
+
+        $number =
+            str_pad(
+                (string) $quote->number,
+                4,
+                '0',
+                STR_PAD_LEFT
+            );
+
+
+        $amount =
+            'R$ '
+            . number_format(
+                (float) $quote->total,
+                2,
+                ',',
+                '.'
+            );
+
+
+        $lines = [
+            "Olá, {$clientName}!",
+            '',
+            "A proposta #{$number} foi aprovada no valor de {$amount}.",
+        ];
+
+
+        if (
+            filled(
+                $business->pix_key
+            )
+        ) {
+            $lines[] = '';
+            $lines[] =
+                'Chave Pix: '
+                . $business->pix_key;
+        }
+
+
+        if (
+            filled(
+                $business
+                    ->payment_instructions
+            )
+        ) {
+            $lines[] = '';
+            $lines[] =
+                trim(
+                    $business
+                        ->payment_instructions
+                );
+        }
+
+
+        $lines[] = '';
+        $lines[] =
+            'Qualquer dúvida, estou à disposição.';
+
+
+        return implode(
+            "\n",
+            $lines
+        );
+    }
+
+
+    public function paymentReminderUrl(): ?string
+    {
+        $business =
+            Auth::user()->business;
+
+        $quote =
+            $this->quote;
+
+
+        if (
+            ! $business
+            || ! $business
+                ->payment_collection_enabled
+            || $quote->status
+                !== 'accepted'
+            || ! $quote
+                ->payment_collection_enabled
+            || $quote->payment_status
+                === 'paid'
+        ) {
+            return null;
+        }
+
+
+        $phone =
+            preg_replace(
+                '/\D+/',
+                '',
+                (string) (
+                    $quote
+                        ->client
+                        ?->whatsapp
+                    ?? ''
+                )
+            );
+
+
+        if (
+            strlen($phone) === 10
+            || strlen($phone) === 11
+        ) {
+            $phone =
+                '55'
+                . $phone;
+        }
+
+
+        if (
+            strlen($phone) < 12
+        ) {
+            return null;
+        }
+
+
+        return
+            'https://wa.me/'
+            . $phone
+            . '?text='
+            . rawurlencode(
+                $this
+                    ->paymentReminderMessage()
+            );
+    }
+
+
+    public function recordPaymentReminder(): void
+    {
+        $business =
+            Auth::user()->business;
+
+        abort_unless(
+            $business,
+            403
+        );
+
+
+        DB::transaction(
+            function () use (
+                $business
+            ) {
+
+                $quote = $business
+                    ->quotes()
+                    ->with('client')
+                    ->whereKey(
+                        $this->quoteId
+                    )
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+
+                abort_unless(
+                    $quote->status
+                    === 'accepted',
+                    422
+                );
+
+
+                abort_unless(
+                    $business
+                        ->payment_collection_enabled
+                    && $quote
+                        ->payment_collection_enabled,
+                    422
+                );
+
+
+                if (
+                    $quote->payment_status
+                    === 'paid'
+                ) {
+                    return;
+                }
+
+
+                $phone =
+                    preg_replace(
+                        '/\D+/',
+                        '',
+                        (string) (
+                            $quote
+                                ->client
+                                ?->whatsapp
+                            ?? ''
+                        )
+                    );
+
+
+                abort_if(
+                    $phone === '',
+                    422
+                );
+
+
+                $quote
+                    ->events()
+                    ->create([
+                        'type' =>
+                            'payment_reminder_sent',
+
+                        'metadata' => [
+                            'channel' =>
+                                'whatsapp',
+
+                            'origin' =>
+                                'quote_show',
+                        ],
+                    ]);
+            }
+        );
+
+
+        unset(
+            $this->quote
+        );
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -470,7 +1016,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
             'expired' => 'Expirado',
 
             default =>
-            ucfirst($status),
+                ucfirst($status),
         };
     }
 
@@ -478,31 +1024,31 @@ new #[Title('Orçamento | Fechou')] class extends Component
     {
         return match ($status) {
             'draft' =>
-            'bg-zinc-100 text-zinc-700
+                'bg-zinc-100 text-zinc-700
                  dark:bg-zinc-800 dark:text-zinc-200',
 
             'sent' =>
-            'bg-blue-100 text-blue-700
+                'bg-blue-100 text-blue-700
                  dark:bg-blue-950/70 dark:text-blue-300',
 
             'viewed' =>
-            'bg-amber-100 text-amber-800
+                'bg-amber-100 text-amber-800
                  dark:bg-amber-950/60 dark:text-amber-300',
 
             'accepted' =>
-            'bg-emerald-100 text-emerald-700
+                'bg-emerald-100 text-emerald-700
                  dark:bg-emerald-950/60 dark:text-emerald-300',
 
             'rejected' =>
-            'bg-red-100 text-red-700
+                'bg-red-100 text-red-700
                  dark:bg-red-950/60 dark:text-red-300',
 
             'expired' =>
-            'bg-zinc-100 text-zinc-500
+                'bg-zinc-100 text-zinc-500
                  dark:bg-zinc-800 dark:text-zinc-400',
 
             default =>
-            'bg-zinc-100 text-zinc-700
+                'bg-zinc-100 text-zinc-700
                  dark:bg-zinc-800 dark:text-zinc-200',
         };
     }
@@ -526,15 +1072,15 @@ new #[Title('Orçamento | Fechou')] class extends Component
     {
         return match ($type) {
             'service' =>
-            'bg-blue-100 text-blue-700
+                'bg-blue-100 text-blue-700
                  dark:bg-blue-950/70 dark:text-blue-300',
 
             'material' =>
-            'bg-violet-100 text-violet-700
+                'bg-violet-100 text-violet-700
                  dark:bg-violet-950/70 dark:text-violet-300',
 
             default =>
-            'bg-zinc-100 text-zinc-700
+                'bg-zinc-100 text-zinc-700
                  dark:bg-zinc-800 dark:text-zinc-200',
         };
     }
@@ -549,326 +1095,913 @@ new #[Title('Orçamento | Fechou')] class extends Component
     {
         return match ($type) {
             'created' =>
-            'Orçamento criado',
+                'Proposta criada',
 
             'updated' =>
-            'Orçamento editado',
+                'Proposta editada',
 
             'sent' =>
-            'Orçamento enviado',
+                'Proposta enviada',
 
             'viewed' =>
-            'Cliente visualizou',
+                'Cliente visualizou',
 
             'accepted' =>
-            'Cliente aceitou',
+                'Cliente aceitou',
 
             'rejected' =>
-            'Cliente recusou',
+                'Cliente recusou',
 
             'version_created' =>
-            'Nova versão criada',
+                'Nova versão criada',
             'follow_up' => 'Follow-up realizado',
 
+            'payment_received' =>
+                'Pagamento recebido',
+
+            'payment_reminder_sent' =>
+                'Lembrete de pagamento enviado',
+
+            'execution_started' =>
+                'Execução iniciada',
+
+            'execution_completed' =>
+                'Execução concluída',
+
             default =>
-            ucfirst($type),
+                ucfirst($type),
         };
     }
+
+
+    public function timelineEvents()
+    {
+        /*
+         * Para acompanhamento operacional,
+         * os acontecimentos mais recentes
+         * ficam no topo.
+         */
+        return $this
+            ->quote
+            ->events()
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get();
+    }
+
+
+    public function eventPhaseLabel(
+        string $type
+    ): string {
+        return match ($type) {
+
+            'sent',
+            'follow_up' =>
+                'Comercial',
+
+            'viewed',
+            'accepted',
+            'rejected' =>
+                'Cliente',
+
+            'payment_received',
+            'payment_reminder_sent' =>
+                'Pagamento',
+
+            'execution_started',
+            'execution_completed' =>
+                'Execução',
+
+            default =>
+                'Proposta',
+        };
+    }
+
+
+    public function eventPhaseClasses(
+        string $type
+    ): string {
+        return match ($type) {
+
+            'sent',
+            'follow_up' =>
+                'bg-blue-50 text-blue-700 '
+                . 'dark:bg-blue-950/50 '
+                . 'dark:text-blue-300',
+
+            'viewed' =>
+                'bg-amber-50 text-amber-700 '
+                . 'dark:bg-amber-950 '
+                . 'dark:text-amber-300',
+
+            'accepted' =>
+                'bg-emerald-50 text-emerald-700 '
+                . 'dark:bg-emerald-950/50 '
+                . 'dark:text-emerald-300',
+
+            'rejected' =>
+                'bg-red-50 text-red-700 '
+                . 'dark:bg-red-950/50 '
+                . 'dark:text-red-300',
+
+            'payment_received' =>
+                'bg-emerald-50 text-emerald-700 '
+                . 'dark:bg-emerald-950/50 '
+                . 'dark:text-emerald-300',
+
+            'payment_reminder_sent' =>
+                'bg-amber-50 text-amber-700 '
+                . 'dark:bg-amber-950/50 '
+                . 'dark:text-amber-300',
+
+            'execution_started' =>
+                'bg-blue-50 text-blue-700 '
+                . 'dark:bg-blue-950/50 '
+                . 'dark:text-blue-300',
+
+            'execution_completed' =>
+                'bg-emerald-50 text-emerald-700 '
+                . 'dark:bg-emerald-950/50 '
+                . 'dark:text-emerald-300',
+
+            'version_created' =>
+                'bg-violet-50 text-violet-700 '
+                . 'dark:bg-violet-950/50 '
+                . 'dark:text-violet-300',
+
+            default =>
+                'bg-zinc-100 text-zinc-600 '
+                . 'dark:bg-zinc-800 '
+                . 'dark:text-zinc-300',
+        };
+    }
+
+
+    public function formatCycleDuration(
+        $from,
+        $to
+    ): string {
+        if (! $from || ! $to) {
+            return '—';
+        }
+
+        $seconds = max(
+            0,
+            (int) $from->diffInSeconds($to)
+        );
+
+        if ($seconds < 60) {
+            return $seconds . ' s';
+        }
+
+        $minutes = intdiv(
+            $seconds,
+            60
+        );
+
+        if ($minutes < 60) {
+            return $minutes . ' min';
+        }
+
+        $hours = intdiv(
+            $minutes,
+            60
+        );
+
+        $remainingMinutes =
+            $minutes % 60;
+
+        if ($hours < 24) {
+            if ($remainingMinutes === 0) {
+                return $hours . ' h';
+            }
+
+            return $hours
+                . ' h '
+                . $remainingMinutes
+                . ' min';
+        }
+
+        $days = intdiv(
+            $hours,
+            24
+        );
+
+        $remainingHours =
+            $hours % 24;
+
+        if ($remainingHours === 0) {
+            return $days . ' d';
+        }
+
+        return $days
+            . ' d '
+            . $remainingHours
+            . ' h';
+    }
+
+
+    public function cycleSummary(): array
+    {
+        $events = $this
+            ->quote
+            ->events()
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get();
+
+
+        $createdAt =
+            $events
+                ->firstWhere(
+                    'type',
+                    'created'
+                )
+                ?->created_at
+            ?? $this->quote->created_at;
+
+
+        $viewedAt =
+            $events
+                ->firstWhere(
+                    'type',
+                    'viewed'
+                )
+                ?->created_at;
+
+
+        $acceptedAt =
+            $events
+                ->firstWhere(
+                    'type',
+                    'accepted'
+                )
+                ?->created_at
+            ?? $this->quote->accepted_at;
+
+
+        $paidAt =
+            $events
+                ->firstWhere(
+                    'type',
+                    'payment_received'
+                )
+                ?->created_at
+            ?? $this->quote->paid_at;
+
+
+        $completedAt =
+            $events
+                ->firstWhere(
+                    'type',
+                    'execution_completed'
+                )
+                ?->created_at
+            ?? $this->quote->completed_at;
+
+
+        return [
+            [
+                'key' =>
+                    'viewed',
+
+                'label' =>
+                    'Até visualizar',
+
+                'context' =>
+                    'Criação → visualização',
+
+                'value' =>
+                    $viewedAt
+                        ? $this->formatCycleDuration(
+                            $createdAt,
+                            $viewedAt
+                        )
+                        : '—',
+
+                'completed' =>
+                    (bool) $viewedAt,
+            ],
+
+            [
+                'key' =>
+                    'accepted',
+
+                'label' =>
+                    'Até aceitar',
+
+                'context' =>
+                    'Criação → aceite',
+
+                'value' =>
+                    $acceptedAt
+                        ? $this->formatCycleDuration(
+                            $createdAt,
+                            $acceptedAt
+                        )
+                        : '—',
+
+                'completed' =>
+                    (bool) $acceptedAt,
+            ],
+
+            [
+                'key' =>
+                    'payment',
+
+                'label' =>
+                    'Até pagamento',
+
+                'context' =>
+                    'Aceite → pagamento',
+
+                'value' =>
+                    (
+                        $acceptedAt
+                        && $paidAt
+                    )
+                        ? $this->formatCycleDuration(
+                            $acceptedAt,
+                            $paidAt
+                        )
+                        : (
+                            $acceptedAt
+                                ? 'Pendente'
+                                : '—'
+                        ),
+
+                'completed' =>
+                    (bool) (
+                        $acceptedAt
+                        && $paidAt
+                    ),
+            ],
+
+            [
+                'key' =>
+                    'completed',
+
+                'label' =>
+                    'Ciclo completo',
+
+                'context' =>
+                    'Criação → conclusão',
+
+                'value' =>
+                    $completedAt
+                        ? $this->formatCycleDuration(
+                            $createdAt,
+                            $completedAt
+                        )
+                        : (
+                            $acceptedAt
+                                ? 'Em andamento'
+                                : '—'
+                        ),
+
+                'completed' =>
+                    (bool) $completedAt,
+            ],
+        ];
+    }
+
+
+
+
 
     public function eventClasses(string $type): string
     {
         return match ($type) {
             'accepted' =>
-            'bg-emerald-500',
+                'bg-emerald-500',
 
             'rejected' =>
-            'bg-red-500',
+                'bg-red-500',
 
             'viewed' =>
-            'bg-amber-500',
+                'bg-amber-500',
 
             'sent' =>
-            'bg-blue-500',
+                'bg-blue-500',
 
             'updated' =>
-            'bg-violet-500',
+                'bg-violet-500',
 
             'version_created' =>
-            'bg-violet-500',
+                'bg-violet-500',
 
             'follow_up' =>
-            'bg-cyan-500',
+                'bg-cyan-500',
+            'payment_received' =>
+                'bg-emerald-500',
+
+            'execution_started' =>
+                'bg-blue-500',
+
+            'execution_completed' =>
+                'bg-emerald-600',
 
             default =>
-            'bg-zinc-400 dark:bg-zinc-600',
+                'bg-zinc-400 dark:bg-zinc-600',
         };
     }
 };
 ?>
 
-<div
-    wire:poll.10s
-    class="mx-auto max-w-7xl space-y-6">
+<div wire:poll.10s class="mx-auto w-full max-w-7xl space-y-6">
 
     {{-- ========================================================= --}}
     {{-- MENSAGEM --}}
     {{-- ========================================================= --}}
 
-    @if (session('success'))
-
-    <div
-        class="
-                rounded-xl
-
-                border border-emerald-200
-
-                bg-emerald-50
-
-                px-4 py-3
-
-                text-sm font-medium
-                text-emerald-800
-
-                dark:border-emerald-900
-                dark:bg-emerald-950/40
-                dark:text-emerald-300
-            ">
-        {{ session('success') }}
-    </div>
-
-    @endif
-
-
     {{-- ========================================================= --}}
-    {{-- CABEÇALHO --}}
+    {{-- CABEÇALHO + AÇÕES --}}
     {{-- ========================================================= --}}
 
-    <div
-        class="
-            flex flex-col gap-5
-
-            xl:flex-row
-            xl:items-start
-            xl:justify-between
+    <section class="
+            overflow-visible
+            rounded-2xl
+            border border-zinc-200
+            bg-white
+            shadow-sm
+            dark:border-zinc-800
+            dark:bg-zinc-900
         ">
+        <div class="px-5 py-5 sm:px-6">
 
-        {{-- IDENTIFICAÇÃO --}}
-
-        <div class="min-w-0">
-
-            <a
-                href="{{ route('quotes.index') }}"
-                wire:navigate
-
-                class="
-                    inline-flex
-                    items-center
-                    gap-2
-
-                    text-sm
-                    font-medium
-
+            <a href="{{ route('quotes.index') }}" wire:navigate class="
+                    inline-flex items-center gap-2
+                    text-sm font-medium
                     text-zinc-500
-
                     transition
-
                     hover:text-zinc-950
-
                     dark:text-zinc-400
                     dark:hover:text-white
                 ">
-
-                <svg
-                    class="size-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2">
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M15 18l-6-6 6-6" />
+                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6" />
                 </svg>
 
-                Voltar para orçamentos
-
+                Voltar para propostas
             </a>
 
+            <div class="
+                    mt-4
+                    flex flex-col gap-5
+                    lg:flex-row
+                    lg:items-end
+                    lg:justify-between
+                ">
+                <div class="min-w-0">
 
-            <div class="mt-4 flex flex-wrap items-center gap-2.5">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <h1 class="
+                                text-2xl font-bold
+                                tracking-tight
+                                text-zinc-950
+                                dark:text-white
+                            ">
+                            #{{ str_pad(
+    $this->quote->number,
+    4,
+    '0',
+    STR_PAD_LEFT
+) }}
+                        </h1>
 
-                {{-- NÚMERO --}}
+                        <span class="
+                                inline-flex
+                                rounded-full
+                                px-2.5 py-1
+                                text-xs font-semibold
+                                {{ $this->statusClasses(
+    $this->quote->status
+) }}
+                            ">
+                            {{ $this->statusLabel(
+    $this->quote->status
+) }}
+                        </span>
 
-                <h1
-                    class="
-                        text-2xl font-bold
-                        tracking-tight
+                        @if ($this->quote->version > 1)
+                            <span class="
+                                                        inline-flex items-center gap-1
+                                                        rounded-full
+                                                        bg-violet-100
+                                                        px-2.5 py-1
+                                                        text-xs font-semibold
+                                                        text-violet-700
+                                                        dark:bg-violet-950
+                                                        dark:text-violet-300
+                                                    ">
+                                Versão {{ $this->quote->version }}
+                            </span>
+                        @endif
+                    </div>
 
-                        text-zinc-950
-                        dark:text-white
+                    <h2 class="
+                            mt-2
+                            text-lg font-semibold
+                            text-zinc-900
+                            dark:text-zinc-100
+                        ">
+                        {{ $this->quote->title }}
+                    </h2>
+
+                    <p class="
+                            mt-1
+                            text-sm
+                            text-zinc-500
+                            dark:text-zinc-400
+                        ">
+                        Criada em
+                        {{ $this->quote->created_at->format(
+    'd/m/Y \à\s H:i'
+) }}
+                    </p>
+                </div>
+
+                <div class="
+                        min-w-44
+                        rounded-xl
+                        border border-emerald-200
+                        bg-emerald-50
+                        px-5 py-3
+                        dark:border-emerald-900/60
+                        dark:bg-emerald-950/20
                     ">
-                    #{{ str_pad(
-                        $this->quote->number,
-                        4,
-                        '0',
-                        STR_PAD_LEFT
-                    ) }}
-                </h1>
+                    <p class="
+                            text-xs font-semibold
+                            uppercase tracking-wide
+                            text-emerald-700
+                            dark:text-emerald-400
+                        ">
+                        Total
+                    </p>
 
+                    <p class="
+                            mt-1 whitespace-nowrap
+                            text-2xl font-bold
+                            tracking-tight
+                            text-zinc-950
+                            dark:text-zinc-100
+                        ">
+                        R$ {{ number_format(
+    (float) $this->quote->total,
+    2,
+    ',',
+    '.'
+) }}
+                    </p>
+                </div>
+            </div>
+        </div>
 
-                {{-- STATUS --}}
+        <div x-data="{ copied: false }" class="
+                flex flex-col gap-3
+                border-t border-zinc-200
+                bg-zinc-50/60
+                px-5 py-4
+                sm:px-6
+                lg:flex-row
+                lg:items-center
+                lg:justify-between
+                dark:border-zinc-800
+                dark:bg-zinc-950/30
+            ">
+            <div
+                data-header-document-actions
+                class="
+                    flex
+                    flex-wrap
+                    items-center
+                    gap-2
+                "
+            >
 
-                <span
+<details
+                data-more-actions
+                class="
+                    group
+                    relative
+                    w-fit
+                "
+            >
+
+                <summary
                     class="
                         inline-flex
-                        rounded-full
+                        cursor-pointer
+                        list-none
+                        items-center
+                        justify-center
+                        gap-2
 
-                        px-2.5 py-1
+                        rounded-lg
 
-                        text-xs
+                        border border-zinc-300
+
+                        bg-transparent
+
+                        px-3.5 py-2.5
+
+                        text-sm
                         font-semibold
+                        text-zinc-600
 
-                        {{ $this->statusClasses(
-                            $this->quote->status
-                        ) }}
-                    ">
-                    {{ $this->statusLabel(
-                        $this->quote->status
-                    ) }}
-                </span>
+                        transition
 
+                        hover:bg-zinc-100
+                        hover:text-zinc-950
 
-                {{-- VERSÃO --}}
-
-                @if ($this->quote->version > 1)
-
-                <span
-                    class="
-                            inline-flex
-                            items-center
-                            gap-1
-
-                            rounded-full
-
-                            bg-violet-100
-
-                            px-2.5 py-1
-
-                            text-xs
-                            font-semibold
-                            text-violet-700
-
-                            dark:bg-violet-950
-                            dark:text-violet-300
-                        ">
+                        dark:border-zinc-700
+                        dark:text-zinc-300
+                        dark:hover:bg-zinc-800
+                        dark:hover:text-white
+                    "
+                >
+                    Mais ações
 
                     <svg
-                        class="size-3"
+                        class="
+                            size-4
+                            transition-transform
+                            group-open:rotate-180
+                        "
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
-                        stroke-width="2">
+                        stroke-width="2"
+                        aria-hidden="true"
+                    >
                         <path
                             stroke-linecap="round"
                             stroke-linejoin="round"
-                            d="M8 7h11v11H8z" />
-
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M5 16H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v1" />
+                            d="m6 9 6 6 6-6"
+                        />
                     </svg>
-
-                    Versão {{ $this->quote->version }}
-
-                </span>
-
-                @endif
-
-            </div>
+                </summary>
 
 
-            <h2
-                class="
-                    mt-2
+                <div
+                    class="
+                        absolute
+                        left-0
+                        top-full
+                        z-40
 
-                    text-lg
-                    font-semibold
+                        mt-2
 
-                    text-zinc-800
-                    dark:text-zinc-200
-                ">
-                {{ $this->quote->title }}
-            </h2>
+                        flex
+                        min-w-56
+                        flex-col
+                        gap-1
 
+                        rounded-xl
 
-            <p
-                class="
-                    mt-1
+                        border border-zinc-200
 
-                    text-sm
+                        bg-white
 
-                    text-zinc-500
-                    dark:text-zinc-400
-                ">
-                Criado em
-                {{ $this->quote->created_at->format(
-                    'd/m/Y \à\s H:i'
-                ) }}
-            </p>
+                        p-1.5
 
-        </div>
+                        shadow-lg
+                        shadow-black/10
 
+                        [&>a]:w-full
+                        [&>a]:justify-start
+                        [&>a]:border-transparent
+                        [&>a]:bg-transparent
+                        [&>a]:shadow-none
 
-        {{-- ===================================================== --}}
-        {{-- AÇÕES + TOTAL --}}
-        {{-- ===================================================== --}}
+                        [&>button]:w-full
+                        [&>button]:justify-start
+                        [&>button]:border-transparent
+                        [&>button]:bg-transparent
+                        [&>button]:shadow-none
 
-        <div
-            class="
-                flex flex-col
-                gap-3
+                        dark:border-zinc-700
+                        dark:bg-zinc-900
+                    "
+                >
 
-                lg:flex-row
-                lg:items-center
-            ">
-
-            <div
-                x-data="{ copied: false }"
-                class="flex flex-wrap gap-2">
-
-                {{-- ================================================= --}}
-                {{-- EDITAR --}}
-                {{-- ================================================= --}}
 
                 @if ($this->quote->status === 'draft')
+                                <a href="{{ route(
+                        'quotes.edit',
+                        $this->quote->id
+                    ) }}" wire:navigate class="
+                                                                                                            inline-flex items-center justify-center gap-2
+                                                                                                            rounded-lg
+                                                                                                            border border-zinc-300
+                                                                                                            bg-white
+                                                                                                            px-4 py-2.5
+                                                                                                            text-sm font-semibold
+                                                                                                            text-zinc-700
+                                                                                                            shadow-sm
+                                                                                                            transition
+                                                                                                            hover:bg-zinc-100
+                                                                                                            hover:text-zinc-950
+                                                                                                            dark:border-zinc-700
+                                                                                                            dark:bg-zinc-900
+                                                                                                            dark:text-zinc-200
+                                                                                                            dark:hover:bg-zinc-800
+                                                                                                            dark:hover:text-white
+                                                                                                        ">
+                                    Editar proposta
+                                </a>
+                @else
+                    @if ($this->canUseVersioning)
+                        <button type="button" wire:click="createNewVersion"
+                            wire:confirm="Será criada uma nova proposta em rascunho com os mesmos dados desta proposta. Deseja continuar?"
+                            wire:loading.attr="disabled" wire:target="createNewVersion" class="
+                        inline-flex
+                        items-center
+                        justify-center
+                        gap-1.5
+
+                        rounded-lg
+
+                        border border-zinc-300
+                        bg-transparent
+
+                        px-3 py-2
+
+                        text-xs font-semibold
+                        text-zinc-600
+
+                        transition
+
+                        hover:bg-zinc-100
+                        hover:text-zinc-950
+
+                        dark:border-zinc-700
+                        dark:text-zinc-300
+                        dark:hover:bg-zinc-800
+                        dark:hover:text-white
+                    ">
+                            <span wire:loading.remove wire:target="createNewVersion">
+                                Criar nova versão
+                            </span>
+                            <span wire:loading wire:target="createNewVersion">
+                                Criando...
+                            </span>
+                        </button>
+                    @else
+                        <a href="{{ route('settings.subscription') }}" wire:navigate class="
+                        inline-flex
+                        items-center
+                        justify-center
+                        gap-1.5
+
+                        rounded-lg
+
+                        border border-zinc-300
+                        bg-transparent
+
+                        px-3 py-2
+
+                        text-xs font-semibold
+                        text-zinc-600
+
+                        transition
+
+                        hover:bg-zinc-100
+                        hover:text-zinc-950
+
+                        dark:border-zinc-700
+                        dark:text-zinc-300
+                        dark:hover:bg-zinc-800
+                        dark:hover:text-white
+                    ">
+                            Criar nova versão
+                            <span class="
+                                                                            rounded-full
+                                                                            bg-violet-200/70
+                                                                            px-1.5 py-0.5
+                                                                            text-[10px] font-bold
+                                                                            dark:bg-violet-900
+                                                                        ">
+                                PRO
+                            </span>
+                        </a>
+                    @endif
+                @endif
 
                 <a
-                    href="{{ route(
-                            'quotes.edit',
-                            $this->quote->id
-                        ) }}"
+                    data-duplicate-quote
+                    href="{{
+                        route(
+                            'quotes.create',
+                            [
+                                'duplicar' =>
+                                    $this->quote->id,
+                            ]
+                        )
+                    }}"
                     wire:navigate
-
                     class="
+                        inline-flex
+                        items-center
+                        justify-center
+                        gap-1.5
+
+                        rounded-lg
+
+                        border border-zinc-300
+                        bg-transparent
+
+                        px-3 py-2
+
+                        text-xs font-semibold
+                        text-zinc-600
+
+                        transition
+
+                        hover:bg-zinc-100
+                        hover:text-zinc-950
+
+                        dark:border-zinc-700
+                        dark:text-zinc-300
+                        dark:hover:bg-zinc-800
+                        dark:hover:text-white
+                    "
+                >
+                    Duplicar proposta
+                </a>
+
+
+                <a
+                    data-save-as-template
+                    href="{{
+                        route(
+                            'quote-templates.index',
+                            [
+                                'proposta' =>
+                                    $this->quote->id,
+                            ]
+                        )
+                    }}"
+                    wire:navigate
+                    class="
+                        inline-flex
+                        items-center
+                        justify-center
+                        gap-1.5
+
+                        rounded-lg
+
+                        border border-zinc-300
+                        bg-transparent
+
+                        px-3 py-2
+
+                        text-xs font-semibold
+                        text-zinc-600
+
+                        transition
+
+                        hover:bg-zinc-100
+                        hover:text-zinc-950
+
+                        dark:border-zinc-700
+                        dark:text-zinc-300
+                        dark:hover:bg-zinc-800
+                        dark:hover:text-white
+                    "
+                >
+                    Salvar como modelo
+                </a>
+
+
+
+
+
+
+                </div>
+
+            </details>
+
+<a href="{{ route(
+    'quotes.pdf.preview',
+    $this->quote->id
+) }}" target="_blank" rel="noopener noreferrer" class="
                             inline-flex
                             items-center
                             justify-center
-                            gap-2
+                            gap-1.5
 
                             rounded-lg
 
                             border border-zinc-300
+                            bg-transparent
 
-                            bg-white
-
-                            px-4 py-2.5
+                            px-3.5 py-2.5
 
                             text-sm
                             font-semibold
-                            text-zinc-700
-
-                            shadow-sm
+                            text-zinc-600
 
                             transition
 
@@ -876,474 +2009,1823 @@ new #[Title('Orçamento | Fechou')] class extends Component
                             hover:text-zinc-950
 
                             dark:border-zinc-700
-                            dark:bg-zinc-900
-                            dark:text-zinc-200
+                            dark:text-zinc-300
                             dark:hover:bg-zinc-800
                             dark:hover:text-white
                         ">
-                    <svg
-                        class="size-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2">
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z" />
-                    </svg>
-
-                    Editar orçamento
-
+                    Revisar PDF
                 </a>
 
-                @endif
-
-
-                {{-- ================================================= --}}
-                {{-- NOVA VERSÃO --}}
-                {{-- ================================================= --}}
-
-                @if ($this->quote->status !== 'draft')
-
-                <button
-                    type="button"
-
-                    wire:click="createNewVersion"
-
-                    wire:confirm="Será criado um novo orçamento em rascunho com os mesmos dados desta proposta. Deseja continuar?"
-
-                    wire:loading.attr="disabled"
-                    wire:target="createNewVersion"
-
-                    class="
+<a href="{{ route(
+    'quotes.pdf',
+    $this->quote->id
+) }}" class="
                             inline-flex
                             items-center
                             justify-center
-                            gap-2
+                            gap-1.5
 
                             rounded-lg
 
-                            border border-violet-200
+                            border border-zinc-300
+                            bg-transparent
 
-                            bg-violet-50
-
-                            px-4 py-2.5
+                            px-3.5 py-2.5
 
                             text-sm
                             font-semibold
-                            text-violet-700
-
-                            shadow-sm
+                            text-zinc-600
 
                             transition
 
-                            hover:bg-violet-100
+                            hover:bg-zinc-100
+                            hover:text-zinc-950
 
-                            disabled:cursor-not-allowed
-                            disabled:opacity-60
-
-                            dark:border-violet-900
-                            dark:bg-violet-950/40
-                            dark:text-violet-300
-                            dark:hover:bg-violet-950/70
+                            dark:border-zinc-700
+                            dark:text-zinc-300
+                            dark:hover:bg-zinc-800
+                            dark:hover:text-white
                         ">
-
-                    <svg
-                        class="size-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2">
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M8 7h11v11H8z" />
-
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M5 16H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v1" />
-                    </svg>
-
-
-                    <span
-                        wire:loading.remove
-                        wire:target="createNewVersion">
-                        Criar nova versão
-                    </span>
-
-
-                    <span
-                        wire:loading
-                        wire:target="createNewVersion">
-                        Criando...
-                    </span>
-
-                </button>
-
-                @endif
-
-
-                {{-- ================================================= --}}
-                {{-- VISUALIZAR PDF --}}
-                {{-- ================================================= --}}
-
-                <a
-                    href="{{ route(
-                        'quotes.pdf.preview',
-                        $this->quote->id
-                    ) }}"
-
-                    target="_blank"
-                    rel="noopener noreferrer"
-
-                    class="
-                        inline-flex
-                        items-center
-                        justify-center
-                        gap-2
-
-                        rounded-lg
-
-                        border border-zinc-300
-
-                        bg-white
-
-                        px-4 py-2.5
-
-                        text-sm
-                        font-semibold
-                        text-zinc-700
-
-                        shadow-sm
-
-                        transition
-
-                        hover:bg-zinc-100
-                        hover:text-zinc-950
-
-                        dark:border-zinc-700
-                        dark:bg-zinc-900
-                        dark:text-zinc-200
-                        dark:hover:bg-zinc-800
-                        dark:hover:text-white
-                    ">
-
-                    <svg
-                        class="size-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2">
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
-
-                        <circle
-                            cx="12"
-                            cy="12"
-                            r="2.5" />
-                    </svg>
-
-                    Visualizar PDF
-
-                </a>
-
-
-                {{-- ================================================= --}}
-                {{-- BAIXAR PDF --}}
-                {{-- ================================================= --}}
-
-                <a
-                    href="{{ route(
-                        'quotes.pdf',
-                        $this->quote->id
-                    ) }}"
-
-                    class="
-                        inline-flex
-                        items-center
-                        justify-center
-                        gap-2
-
-                        rounded-lg
-
-                        border border-zinc-300
-
-                        bg-white
-
-                        px-4 py-2.5
-
-                        text-sm
-                        font-semibold
-                        text-zinc-700
-
-                        shadow-sm
-
-                        transition
-
-                        hover:bg-zinc-100
-                        hover:text-zinc-950
-
-                        dark:border-zinc-700
-                        dark:bg-zinc-900
-                        dark:text-zinc-200
-                        dark:hover:bg-zinc-800
-                        dark:hover:text-white
-                    ">
-
-                    <svg
-                        class="size-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2">
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M12 3v12" />
-
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="m7 10 5 5 5-5" />
-
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M5 21h14" />
-                    </svg>
-
                     Baixar PDF
-
-                </a>
-
-
-                {{-- ================================================= --}}
-                {{-- COPIAR LINK --}}
-                {{-- ================================================= --}}
-
-                <button
-                    type="button"
-
-                    wire:click="markAsSent"
-
-                    x-on:click="
-                        navigator.clipboard.writeText(
-                            @js($this->publicUrl)
-                        );
-
-                        copied = true;
-
-                        setTimeout(
-                            () => copied = false,
-                            2000
-                        );
-                    "
-
-                    class="
-                        inline-flex
-                        items-center
-                        justify-center
-                        gap-2
-
-                        rounded-lg
-
-                        border border-zinc-300
-
-                        bg-white
-
-                        px-4 py-2.5
-
-                        text-sm
-                        font-semibold
-                        text-zinc-700
-
-                        shadow-sm
-
-                        transition
-
-                        hover:bg-zinc-100
-                        hover:text-zinc-950
-
-                        dark:border-zinc-700
-                        dark:bg-zinc-900
-                        dark:text-zinc-200
-                        dark:hover:bg-zinc-800
-                        dark:hover:text-white
-                    ">
-
-                    <svg
-                        class="size-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2">
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" />
-
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1" />
-                    </svg>
-
-
-                    <span x-show="!copied">
-                        Copiar link
-                    </span>
-
-
-                    <span
-                        x-show="copied"
-                        x-cloak
-
-                        class="
-                            text-emerald-600
-                            dark:text-emerald-400
-                        ">
-                        Copiado!
-                    </span>
-
-                </button>
-
-
-                {{-- ================================================= --}}
-                {{-- WHATSAPP --}}
-                {{-- ================================================= --}}
-
-                <a
-                    href="{{ $this->whatsappUrl }}"
-
-                    target="_blank"
-                    rel="noopener noreferrer"
-
-                    wire:click="markAsSent"
-
-                    class="
-                        inline-flex
-                        items-center
-                        justify-center
-                        gap-2
-
-                        rounded-lg
-
-                        bg-emerald-600
-
-                        px-4 py-2.5
-
-                        text-sm
-                        font-semibold
-                        text-white
-
-                        shadow-sm
-
-                        transition
-
-                        hover:bg-emerald-700
-
-                        dark:bg-emerald-500
-                        dark:text-zinc-950
-                        dark:hover:bg-emerald-400
-                    ">
-
-                    <svg
-                        class="size-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2">
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 20l1.2-5A8.5 8.5 0 1 1 21 11.5Z" />
-
-                        <path
-                            stroke-linecap="round"
-                            d="M8.5 8.5c.7 3 2.2 4.5 5 5" />
-                    </svg>
-
-                    Enviar por WhatsApp
-
                 </a>
 
             </div>
 
+            <div class="flex flex-wrap gap-2 lg:justify-end">
 
-            {{-- ================================================= --}}
-            {{-- TOTAL --}}
-            {{-- ================================================= --}}
+                @if ($this->canShareQuote)
+                    <button type="button" wire:click="markAsSent" x-on:click="
+                                                navigator.clipboard.writeText(
+                                                    @js($this->publicUrl)
+                                                );
+                                                copied = true;
+                                                setTimeout(
+                                                    () => copied = false,
+                                                    2000
+                                                );
+                                            " class="
+                                                inline-flex items-center justify-center gap-2
+                                                rounded-lg
+                                                border border-emerald-300
+                                                bg-white
+                                                px-4 py-2.5
+                                                text-sm font-semibold
+                                                text-emerald-700
+                                                shadow-sm
+                                                transition
+                                                hover:bg-emerald-50
+                                                dark:border-emerald-800
+                                                dark:bg-zinc-900
+                                                dark:text-emerald-300
+                                            ">
+                        <span x-show="!copied">Copiar link</span>
+                        <span x-show="copied" x-cloak>Copiado!</span>
+                    </button>
 
-            <div
+                    <a href="{{ $this->whatsappUrl }}" target="_blank" rel="noopener noreferrer" wire:click="markAsSent"
+                        class="
+                                                inline-flex items-center justify-center gap-2
+                                                rounded-lg
+                                                bg-emerald-600
+                                                px-4 py-2.5
+                                                text-sm font-semibold
+                                                text-white
+                                                shadow-sm
+                                                transition
+                                                hover:bg-emerald-700
+                                                dark:bg-emerald-500
+                                                dark:text-zinc-950
+                                            ">
+                        Enviar por WhatsApp
+                    </a>
+                @else
+                    <a href="{{ route('verification.notice') }}" wire:navigate class="
+                                                inline-flex items-center justify-center gap-2
+                                                rounded-lg
+                                                border border-amber-400/70
+                                                bg-amber-50
+                                                px-4 py-2.5
+                                                text-sm font-semibold
+                                                text-amber-800
+                                                shadow-sm
+                                                transition
+                                                hover:bg-amber-100
+                                                dark:border-amber-800
+                                                dark:bg-amber-950/30
+                                                dark:text-amber-200
+                                            ">
+                        Confirmar e-mail para compartilhar
+                    </a>
+                @endif
+            </div>
+        </div>
+    </section>
+
+
+    {{-- ========================================================= --}}
+    {{-- FEEDBACK PÓS-CRIAÇÃO --}}
+    {{-- ========================================================= --}}
+
+    @if (session('quote_created'))
+        <section class="
+                                    rounded-2xl
+                                    border border-emerald-200
+                                    bg-emerald-50/70
+                                    px-5 py-4
+                                    shadow-sm
+                                    sm:px-6
+                                    dark:border-emerald-900/60
+                                    dark:bg-emerald-950/20
+                                ">
+            <div class="flex items-start gap-3">
+                <div class="
+                                            flex size-9 shrink-0
+                                            items-center justify-center
+                                            rounded-xl
+                                            bg-emerald-100
+                                            text-emerald-700
+                                            dark:bg-emerald-500/10
+                                            dark:text-emerald-400
+                                        ">
+                    ✓
+                </div>
+
+                <div>
+                    <p class="
+                                                text-sm font-semibold
+                                                text-zinc-950
+                                                dark:text-white
+                                            ">
+                        Proposta criada com sucesso
+                    </p>
+
+                    <p class="
+                                                mt-1
+                                                text-sm leading-6
+                                                text-zinc-600
+                                                dark:text-zinc-300
+                                            ">
+                        Ela foi salva como rascunho.
+                        Revise o PDF e, quando estiver tudo certo,
+                        compartilhe com o cliente.
+
+                        @if (!$this->canShareQuote)
+                            Para compartilhar, confirme seu e-mail
+                            no aviso acima.
+                        @endif
+                    </p>
+                </div>
+            </div>
+        </section>
+    @elseif (session('success'))
+        <div class="
+                                    rounded-xl
+                                    border border-emerald-200
+                                    bg-emerald-50
+                                    px-4 py-3
+                                    text-sm font-medium
+                                    text-emerald-800
+                                    dark:border-emerald-900
+                                    dark:bg-emerald-950/40
+                                    dark:text-emerald-300
+                                ">
+            {{ session('success') }}
+        </div>
+    @endif
+
+
+    {{-- ========================================================= --}}
+    {{-- FEEDBACK DA RECUSA --}}
+    {{-- ========================================================= --}}
+
+    @if ($this->quote->status === 'rejected')
+        @php
+            $rejectionEvent = $this->quote
+                ->events
+                ->firstWhere(
+                    'type',
+                    'rejected'
+                );
+
+            $rejectionMetadata =
+                $rejectionEvent?->metadata ?? [];
+
+            $rejectionReason =
+                $rejectionMetadata[
+                    'rejection_reason_label'
+                ] ?? null;
+
+            $rejectionComment =
+                $rejectionMetadata[
+                    'rejection_comment'
+                ] ?? null;
+        @endphp
+
+        <section class="
+                                    rounded-2xl
+                                    border border-red-200
+                                    bg-red-50
+                                    px-5 py-4
+                                    shadow-sm
+
+                                    dark:border-red-900/70
+                                    dark:bg-red-950/20
+                                ">
+            <div class="
+                                        flex flex-col gap-4
+                                        sm:flex-row
+                                        sm:items-start
+                                        sm:justify-between
+                                    ">
+                <div class="min-w-0">
+
+                    <div class="flex items-center gap-2.5">
+                        <div class="
+                                                    flex size-9 shrink-0
+                                                    items-center justify-center
+                                                    rounded-full
+                                                    bg-red-100
+                                                    text-red-700
+
+                                                    dark:bg-red-950
+                                                    dark:text-red-300
+                                                ">
+                            <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
+                        </div>
+
+                        <div>
+                            <h3 class="
+                                                        font-semibold
+                                                        text-red-900
+                                                        dark:text-red-200
+                                                    ">
+                                Proposta recusada
+                            </h3>
+
+                            @if ($this->quote->rejected_at)
+                                            <p class="
+                                                                                                                                            mt-0.5
+                                                                                                                                            text-xs
+                                                                                                                                            text-red-700/80
+                                                                                                                                            dark:text-red-400
+                                                                                                                                        ">
+                                                Em
+                                                {{ $this->quote
+                                ->rejected_at
+                                ->format(
+                                    'd/m/Y \à\s H:i'
+                                ) }}
+                                            </p>
+                            @endif
+                        </div>
+                    </div>
+
+                    @if (
+                            $rejectionReason
+                            || $rejectionComment
+                        )
+                        <div class="
+                                                                        mt-4
+                                                                        space-y-3
+                                                                        pl-0
+                                                                        sm:pl-11
+                                                                    ">
+                            @if ($rejectionReason)
+                                <div>
+                                    <p class="
+                                                                                                        text-xs font-semibold
+                                                                                                        uppercase
+                                                                                                        tracking-wide
+                                                                                                        text-red-700/70
+                                                                                                        dark:text-red-400/80
+                                                                                                    ">
+                                        Motivo
+                                    </p>
+
+                                    <p class="
+                                                                                                        mt-1
+                                                                                                        text-sm font-medium
+                                                                                                        text-red-950
+                                                                                                        dark:text-red-100
+                                                                                                    ">
+                                        {{ $rejectionReason }}
+                                    </p>
+                                </div>
+                            @endif
+
+                            @if ($rejectionComment)
+                                <div>
+                                    <p class="
+                                                                                                        text-xs font-semibold
+                                                                                                        uppercase
+                                                                                                        tracking-wide
+                                                                                                        text-red-700/70
+                                                                                                        dark:text-red-400/80
+                                                                                                    ">
+                                        Comentário do cliente
+                                    </p>
+
+                                    <p class="
+                                                                                                        mt-1
+                                                                                                        whitespace-pre-line
+                                                                                                        [overflow-wrap:anywhere]
+                                                                                                        text-sm leading-6
+                                                                                                        text-red-900
+                                                                                                        dark:text-red-200
+                                                                                                    ">
+                                        {{ $rejectionComment }}
+                                    </p>
+                                </div>
+                            @endif
+                        </div>
+                    @else
+                        <p class="
+                                                                        mt-3
+                                                                        text-sm
+                                                                        text-red-800/80
+                                                                        dark:text-red-300/80
+                                                                        sm:pl-11
+                                                                    ">
+                            O cliente recusou a proposta
+                            sem informar um motivo.
+                        </p>
+                    @endif
+                </div>
+            </div>
+        </section>
+    @endif
+    {{-- ========================================================= --}}
+    {{-- NEGÓCIO FECHADO / PÓS-ACEITE --}}
+    {{-- ========================================================= --}}
+
+    @if ($this->quote->status === 'accepted')
+
+        <section
+        x-data="{ confirmAction: null }"
+        @keydown.escape.window="confirmAction = null" class="
+                overflow-hidden
+                rounded-2xl
+                border border-emerald-200
+                bg-white
+                shadow-sm
+
+                dark:border-emerald-900/70
+                dark:bg-zinc-900
+            ">
+
+            {{-- CABEÇALHO --}}
+            <div class="
+                    flex flex-col gap-3
+                    border-b border-emerald-100
+                    bg-emerald-50/70
+                    px-5 py-4
+
+                    sm:flex-row
+                    sm:items-center
+                    sm:justify-between
+
+                    dark:border-emerald-900/60
+                    dark:bg-emerald-950/20
+                ">
+
+                <div class="flex items-center gap-3">
+
+                    <div class="
+                            flex size-10 shrink-0
+                            items-center justify-center
+                            rounded-full
+                            bg-emerald-100
+                            text-emerald-700
+
+                            dark:bg-emerald-950
+                            dark:text-emerald-300
+                        ">
+                        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                            aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12l4 4L19 6" />
+                        </svg>
+                    </div>
+
+                    <div>
+                        <h2 class="
+                                font-semibold
+                                text-emerald-950
+                                dark:text-emerald-100
+                            ">
+                            Negócio fechado
+                        </h2>
+
+                        <p class="
+                                mt-0.5
+                                text-sm
+                                text-emerald-700
+                                dark:text-emerald-400
+                            ">
+                            Proposta aprovada pelo cliente
+
+                            @if ($this->quote->accepted_at)
+                                em
+                                {{ $this->quote->accepted_at->format('d/m/Y \à\s H:i') }}
+                            @endif
+                        </p>
+                    </div>
+
+                </div>
+
+                <span class="
+                        inline-flex w-fit
+                        items-center gap-1.5
+                        rounded-full
+                        bg-emerald-100
+                        px-3 py-1
+                        text-xs font-semibold
+                        text-emerald-700
+
+                        dark:bg-emerald-950
+                        dark:text-emerald-300
+                    ">
+                    Fechado
+                </span>
+
+            </div>
+
+
+            {{-- ETAPAS --}}
+            <div class="
+                    grid
+                    divide-y divide-zinc-200
+
+                    md:grid-cols-2
+                    md:divide-x
+                    md:divide-y-0
+
+                    dark:divide-zinc-800
+                ">
+
+                {{-- ================================================= --}}
+                {{-- PAGAMENTO --}}
+                {{-- ================================================= --}}
+
+                <div class="p-5">
+
+                    <div class="flex items-start justify-between gap-4">
+
+                        <div>
+                            <p class="
+                                    text-xs font-semibold
+                                    uppercase tracking-wide
+                                    text-zinc-500
+                                    dark:text-zinc-400
+                                ">
+                                Pagamento
+                            </p>
+
+                            @if ($this->quote->payment_status === 'paid')
+
+                                <div class="mt-2 flex items-center gap-2">
+
+                                    <div class="
+                                                flex size-7 items-center justify-center
+                                                rounded-full
+                                                bg-emerald-100
+                                                text-emerald-700
+
+                                                dark:bg-emerald-950
+                                                dark:text-emerald-300
+                                            ">
+                                        <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                            stroke-width="2.3">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 12l4 4L19 6" />
+                                        </svg>
+                                    </div>
+
+                                    <div>
+                                        <p class="
+                                                    text-sm font-semibold
+                                                    text-zinc-950
+                                                    dark:text-white
+                                                ">
+                                            Pago
+                                        </p>
+
+                                        @if ($this->quote->paid_at)
+                                            <p class="
+                                                            text-xs
+                                                            text-zinc-500
+                                                            dark:text-zinc-400
+                                                        ">
+                                                {{ $this->quote->paid_at->format('d/m/Y \à\s H:i') }}
+                                            </p>
+                                        @endif
+                                    </div>
+
+                                </div>
+
+                            @else
+
+                                <p class="
+                                            mt-2
+                                            text-sm font-semibold
+                                            text-amber-700
+                                            dark:text-amber-300
+                                        ">
+                                    Pagamento pendente
+                                </p>
+
+                                <p class="
+                                            mt-1
+                                            text-xs leading-5
+                                            text-zinc-500
+                                            dark:text-zinc-400
+                                        ">
+                                    Marque como recebido quando o pagamento
+                                    for confirmado.
+                                </p>
+
+                            @endif
+                        </div>
+
+                    </div>
+
+
+                    @if ($this->quote->payment_status !== 'paid')
+
+                        <button
+                        @click="confirmAction = 'payment'" type="button" wire:loading.attr="disabled"
+                            wire:target="markAsPaid" class="
+                                    mt-4
+                                    inline-flex items-center justify-center gap-2
+                                    rounded-lg
+                                    bg-emerald-600
+                                    px-4 py-2.5
+                                    text-sm font-semibold
+                                    text-white
+                                    transition
+
+                                    hover:bg-emerald-700
+
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-60
+
+                                    dark:bg-emerald-500
+                                    dark:text-zinc-950
+                                    dark:hover:bg-emerald-400
+                                ">
+                            <span wire:loading.remove wire:target="markAsPaid">
+                                Marcar como pago
+                            </span>
+
+                            <span wire:loading wire:target="markAsPaid">
+                                Confirmando...
+                            </span>
+                        </button>
+
+                    @endif
+
+                </div>
+
+
+                {{-- ================================================= --}}
+                {{-- EXECUÇÃO --}}
+                {{-- ================================================= --}}
+
+                <div class="p-5">
+
+                    <p class="
+                            text-xs font-semibold
+                            uppercase tracking-wide
+                            text-zinc-500
+                            dark:text-zinc-400
+                        ">
+                        Execução
+                    </p>
+
+
+                    @if (
+                            $this->quote->execution_status === 'completed'
+                        )
+
+                        <div class="mt-2 flex items-center gap-2">
+
+                            <div class="
+                                        flex size-7 items-center justify-center
+                                        rounded-full
+                                        bg-emerald-100
+                                        text-emerald-700
+
+                                        dark:bg-emerald-950
+                                        dark:text-emerald-300
+                                    ">
+                                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 12l4 4L19 6" />
+                                </svg>
+                            </div>
+
+                            <div>
+                                <p class="
+                                            text-sm font-semibold
+                                            text-zinc-950
+                                            dark:text-white
+                                        ">
+                                    Concluída
+                                </p>
+
+                                @if ($this->quote->completed_at)
+                                    <p class="
+                                                    text-xs
+                                                    text-zinc-500
+                                                    dark:text-zinc-400
+                                                ">
+                                        {{ $this->quote->completed_at->format('d/m/Y \à\s H:i') }}
+                                    </p>
+                                @endif
+                            </div>
+
+                        </div>
+
+                    @elseif (
+                            $this->quote->execution_status === 'in_progress'
+                        )
+
+                        <div class="mt-2">
+
+                            <div class="flex items-center gap-2">
+                                <span class="
+                                            size-2.5
+                                            rounded-full
+                                            bg-blue-500
+                                        "></span>
+
+                                <p class="
+                                            text-sm font-semibold
+                                            text-blue-700
+                                            dark:text-blue-300
+                                        ">
+                                    Em andamento
+                                </p>
+                            </div>
+
+                            @if ($this->quote->execution_started_at)
+                                <p class="
+                                                mt-1
+                                                text-xs
+                                                text-zinc-500
+                                                dark:text-zinc-400
+                                            ">
+                                    Iniciada em
+                                    {{ $this->quote->execution_started_at->format('d/m/Y \à\s H:i') }}
+                                </p>
+                            @endif
+
+                        </div>
+
+                    @else
+
+                        <p class="
+                                    mt-2
+                                    text-sm font-semibold
+                                    text-zinc-700
+                                    dark:text-zinc-200
+                                ">
+                            Aguardando início
+                        </p>
+
+                        <p class="
+                                    mt-1
+                                    text-xs leading-5
+                                    text-zinc-500
+                                    dark:text-zinc-400
+                                ">
+                            Inicie quando o serviço ou pedido começar
+                            a ser executado.
+                        </p>
+
+                    @endif
+
+
+                    {{-- AÇÃO DA EXECUÇÃO --}}
+
+                    @if (
+                            !in_array(
+                                $this->quote->execution_status,
+                                ['in_progress', 'completed'],
+                                true
+                            )
+                        )
+
+                        <button
+                        @click="confirmAction = 'start'" type="button"
+                            wire:loading.attr="disabled" wire:target="startExecution" class="
+                                    mt-4
+                                    inline-flex items-center justify-center
+                                    rounded-lg
+                                    border border-blue-200
+                                    bg-blue-50
+                                    px-4 py-2.5
+                                    text-sm font-semibold
+                                    text-blue-700
+                                    transition
+
+                                    hover:bg-blue-100
+
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-60
+
+                                    dark:border-blue-900
+                                    dark:bg-blue-950/40
+                                    dark:text-blue-300
+                                    dark:hover:bg-blue-950/70
+                                ">
+                            <span wire:loading.remove wire:target="startExecution">
+                                Iniciar execução
+                            </span>
+
+                            <span wire:loading wire:target="startExecution">
+                                Iniciando...
+                            </span>
+                        </button>
+
+
+                    @elseif (
+                            $this->quote->execution_status === 'in_progress'
+                        )
+
+                        <button
+                        @click="confirmAction = 'complete'" type="button" wire:loading.attr="disabled"
+                            wire:target="completeExecution" class="
+                                    mt-4
+                                    inline-flex items-center justify-center
+                                    rounded-lg
+                                    bg-zinc-900
+                                    px-4 py-2.5
+                                    text-sm font-semibold
+                                    text-white
+                                    transition
+
+                                    hover:bg-zinc-800
+
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-60
+
+                                    dark:bg-white
+                                    dark:text-zinc-950
+                                    dark:hover:bg-zinc-200
+                                ">
+                            <span wire:loading.remove wire:target="completeExecution">
+                                Concluir execução
+                            </span>
+
+                            <span wire:loading wire:target="completeExecution">
+                                Concluindo...
+                            </span>
+                        </button>
+
+                    @endif
+
+                </div>
+
+            </div>
+
+
+        {{-- ===================================================== --}}
+
+        {{-- ===================================================== --}}
+        {{-- COBRANÇA OPCIONAL --}}
+        {{-- ===================================================== --}}
+
+        @if (
+            $this->quote->status
+            === 'accepted'
+        )
+
+            <section
+                id="cobranca"
+                data-payment-collection
+
                 class="
-                    min-w-44
+                    mb-6
 
-                    rounded-xl
+                    rounded-2xl
 
-                    border border-emerald-200
+                    border
+                    border-zinc-200
 
-                    bg-emerald-50
+                    bg-white
 
-                    px-5 py-3
+                    p-5
 
                     shadow-sm
 
-                    dark:border-zinc-700
+                    dark:border-zinc-800
                     dark:bg-zinc-900
-                ">
+                "
+            >
 
-                <p
+                <div
                     class="
-                        text-xs
-                        font-semibold
-                        uppercase
-                        tracking-wide
+                        flex
+                        flex-col
+                        gap-4
 
-                        text-emerald-700
-                        dark:text-emerald-400
-                    ">
-                    Total
-                </p>
+                        sm:flex-row
+                        sm:items-start
+                        sm:justify-between
+                    "
+                >
+
+                    <div>
+
+                        <div
+                            class="
+                                flex
+                                flex-wrap
+                                items-center
+                                gap-2
+                            "
+                        >
+
+                            <h3
+                                class="
+                                    font-semibold
+
+                                    text-zinc-950
+                                    dark:text-white
+                                "
+                            >
+                                Cobrança
+                            </h3>
 
 
-                <p
+                            <span
+                                class="
+                                    rounded-full
+
+                                    bg-zinc-100
+
+                                    px-2
+                                    py-0.5
+
+                                    text-[10px]
+                                    font-bold
+
+                                    text-zinc-500
+
+                                    dark:bg-zinc-800
+                                    dark:text-zinc-400
+                                "
+                            >
+                                OPCIONAL
+                            </span>
+
+                        </div>
+
+
+                        <p
+                            class="
+                                mt-1
+
+                                text-sm
+                                leading-6
+
+                                text-zinc-500
+                                dark:text-zinc-400
+                            "
+                        >
+                            Use o Fechou para compartilhar
+                            dados de pagamento e lembrar o
+                            cliente pelo WhatsApp.
+                        </p>
+
+                    </div>
+
+
+                    <a
+                        href="{{
+                            route(
+                                'settings.payment'
+                            )
+                        }}"
+
+                        wire:navigate
+
+                        class="
+                            shrink-0
+
+                            text-sm
+                            font-semibold
+
+                            text-emerald-600
+
+                            hover:text-emerald-700
+
+                            dark:text-emerald-400
+                            dark:hover:text-emerald-300
+                        "
+                    >
+                        Configurar cobrança
+                    </a>
+
+                </div>
+
+
+                @if (
+                    ! Auth::user()
+                        ->business
+                        ?->payment_collection_enabled
+                )
+
+                    <div
+                        class="
+                            mt-5
+
+                            rounded-xl
+
+                            border
+                            border-dashed
+                            border-zinc-300
+
+                            bg-zinc-50
+
+                            p-4
+
+                            dark:border-zinc-700
+                            dark:bg-zinc-950/40
+                        "
+                    >
+
+                        <p
+                            class="
+                                text-sm
+                                font-semibold
+
+                                text-zinc-700
+                                dark:text-zinc-200
+                            "
+                        >
+                            Cobrança desativada para sua empresa
+                        </p>
+
+
+                        <p
+                            class="
+                                mt-1
+
+                                text-xs
+                                leading-5
+
+                                text-zinc-500
+                                dark:text-zinc-400
+                            "
+                        >
+                            Nada muda no seu fluxo atual.
+                            Ative o recurso somente se quiser
+                            enviar Pix, instruções e lembretes
+                            pelo Fechou.
+                        </p>
+
+                    </div>
+
+
+                @elseif (
+                    ! $this->quote
+                        ->payment_collection_enabled
+                )
+
+                    <div
+                        class="
+                            mt-5
+
+                            flex
+                            flex-col
+                            gap-3
+
+                            rounded-xl
+
+                            border
+                            border-zinc-200
+
+                            bg-zinc-50
+
+                            p-4
+
+                            sm:flex-row
+                            sm:items-center
+                            sm:justify-between
+
+                            dark:border-zinc-800
+                            dark:bg-zinc-950/40
+                        "
+                    >
+
+                        <div>
+
+                            <p
+                                class="
+                                    text-sm
+                                    font-semibold
+
+                                    text-zinc-700
+                                    dark:text-zinc-200
+                                "
+                            >
+                                Não usar cobrança nesta proposta
+                            </p>
+
+
+                            <p
+                                class="
+                                    mt-1
+
+                                    text-xs
+
+                                    text-zinc-500
+                                    dark:text-zinc-400
+                                "
+                            >
+                                O recurso está disponível,
+                                mas continua opcional por negócio.
+                            </p>
+
+                        </div>
+
+
+                        <button
+                            type="button"
+
+                            wire:click="
+                                setPaymentCollection(true)
+                            "
+
+                            class="
+                                inline-flex
+                                shrink-0
+                                items-center
+                                justify-center
+
+                                rounded-lg
+
+                                bg-emerald-600
+
+                                px-3.5
+                                py-2
+
+                                text-sm
+                                font-semibold
+                                text-white
+
+                                transition
+
+                                hover:bg-emerald-700
+
+                                dark:bg-emerald-500
+                                dark:text-zinc-950
+                                dark:hover:bg-emerald-400
+                            "
+                        >
+                            Ativar nesta proposta
+                        </button>
+
+                    </div>
+
+
+                @else
+
+                    <div
+                        class="
+                            mt-5
+
+                            grid
+                            gap-4
+
+                            lg:grid-cols-2
+                        "
+                    >
+
+                        <div
+                            class="
+                                rounded-xl
+
+                                border
+                                border-zinc-200
+
+                                p-4
+
+                                dark:border-zinc-800
+                            "
+                        >
+
+                            <p
+                                class="
+                                    text-xs
+                                    font-semibold
+                                    uppercase
+                                    tracking-wide
+
+                                    text-zinc-400
+                                "
+                            >
+                                Valor da proposta
+                            </p>
+
+
+                            <p
+                                class="
+                                    mt-1
+
+                                    text-2xl
+                                    font-bold
+
+                                    text-zinc-950
+                                    dark:text-white
+                                "
+                            >
+                                R$
+                                {{
+                                    number_format(
+                                        $this->quote->total,
+                                        2,
+                                        ',',
+                                        '.'
+                                    )
+                                }}
+                            </p>
+
+
+                            <div
+                                class="
+                                    mt-4
+
+                                    flex
+                                    flex-wrap
+                                    gap-2
+                                "
+                            >
+
+                                @if (
+                                    $this->quote
+                                        ->payment_status
+                                    === 'paid'
+                                )
+
+                                    <span
+                                        class="
+                                            rounded-full
+
+                                            bg-emerald-100
+
+                                            px-2.5
+                                            py-1
+
+                                            text-xs
+                                            font-semibold
+
+                                            text-emerald-700
+
+                                            dark:bg-emerald-950/50
+                                            dark:text-emerald-300
+                                        "
+                                    >
+                                        Pagamento recebido
+                                    </span>
+
+                                @else
+
+                                    <span
+                                        class="
+                                            rounded-full
+
+                                            bg-amber-100
+
+                                            px-2.5
+                                            py-1
+
+                                            text-xs
+                                            font-semibold
+
+                                            text-amber-700
+
+                                            dark:bg-amber-950/50
+                                            dark:text-amber-300
+                                        "
+                                    >
+                                        Pagamento pendente
+                                    </span>
+
+                                @endif
+
+                            </div>
+
+                        </div>
+
+
+                        <div
+                            class="
+                                rounded-xl
+
+                                border
+                                border-zinc-200
+
+                                p-4
+
+                                dark:border-zinc-800
+                            "
+                        >
+
+                            <p
+                                class="
+                                    text-xs
+                                    font-semibold
+                                    uppercase
+                                    tracking-wide
+
+                                    text-zinc-400
+                                "
+                            >
+                                Dados para pagamento
+                            </p>
+
+
+                            @if (
+                                filled(
+                                    Auth::user()
+                                        ->business
+                                        ?->pix_key
+                                )
+                            )
+
+                                <div
+                                    class="
+                                        mt-3
+
+                                        rounded-lg
+
+                                        bg-zinc-50
+
+                                        p-3
+
+                                        dark:bg-zinc-950/60
+                                    "
+                                >
+
+                                    <p
+                                        class="
+                                            text-[10px]
+                                            font-semibold
+                                            uppercase
+                                            tracking-wide
+
+                                            text-zinc-400
+                                        "
+                                    >
+                                        Chave Pix
+                                    </p>
+
+
+                                    <div
+                                        class="
+                                            mt-1
+
+                                            flex
+                                            items-center
+                                            justify-between
+                                            gap-3
+                                        "
+                                    >
+
+                                        <p
+                                            class="
+                                                min-w-0
+                                                break-all
+
+                                                text-sm
+                                                font-medium
+
+                                                text-zinc-800
+                                                dark:text-zinc-200
+                                            "
+                                        >
+                                            {{
+                                                Auth::user()
+                                                    ->business
+                                                    ->pix_key
+                                            }}
+                                        </p>
+
+
+                                        <button
+                                            type="button"
+
+                                            x-data="{
+                                                copied: false
+                                            }"
+
+                                            data-pix="{{
+                                                Auth::user()
+                                                    ->business
+                                                    ->pix_key
+                                            }}"
+
+                                            x-on:click="
+                                                navigator.clipboard
+                                                    .writeText(
+                                                        $el.dataset.pix
+                                                    );
+
+                                                copied = true;
+
+                                                setTimeout(
+                                                    () => {
+                                                        copied = false
+                                                    },
+                                                    2000
+                                                );
+                                            "
+
+                                            class="
+                                                shrink-0
+
+                                                text-xs
+                                                font-semibold
+
+                                                text-emerald-600
+
+                                                hover:text-emerald-700
+
+                                                dark:text-emerald-400
+                                            "
+                                        >
+                                            <span
+                                                x-show="!copied"
+                                            >
+                                                Copiar
+                                            </span>
+
+                                            <span
+                                                x-cloak
+                                                x-show="copied"
+                                            >
+                                                Copiado
+                                            </span>
+                                        </button>
+
+                                    </div>
+
+                                </div>
+
+                            @endif
+
+
+                            @if (
+                                filled(
+                                    Auth::user()
+                                        ->business
+                                        ?->payment_instructions
+                                )
+                            )
+
+                                <p
+                                    class="
+                                        mt-3
+
+                                        whitespace-pre-line
+
+                                        text-sm
+                                        leading-6
+
+                                        text-zinc-600
+                                        dark:text-zinc-300
+                                    "
+                                >
+                                    {{
+                                        Auth::user()
+                                            ->business
+                                            ->payment_instructions
+                                    }}
+                                </p>
+
+                            @endif
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        class="
+                            mt-4
+
+                            flex
+                            flex-wrap
+                            items-center
+                            gap-2
+                        "
+                    >
+
+                        @if (
+                            $this->quote
+                                ->payment_status
+                            !== 'paid'
+                            && $this
+                                ->paymentReminderUrl()
+                        )
+
+                            <a
+                                href="{{
+                                    $this
+                                        ->paymentReminderUrl()
+                                }}"
+
+                                target="_blank"
+                                rel="noopener noreferrer"
+
+                                wire:click="
+                                    recordPaymentReminder
+                                "
+
+                                class="
+                                    inline-flex
+                                    items-center
+                                    justify-center
+
+                                    rounded-lg
+
+                                    bg-emerald-600
+
+                                    px-3.5
+                                    py-2
+
+                                    text-sm
+                                    font-semibold
+                                    text-white
+
+                                    transition
+
+                                    hover:bg-emerald-700
+
+                                    dark:bg-emerald-500
+                                    dark:text-zinc-950
+                                    dark:hover:bg-emerald-400
+                                "
+                            >
+                                Enviar lembrete no WhatsApp
+                            </a>
+
+
+                        @elseif (
+                            $this->quote
+                                ->payment_status
+                            !== 'paid'
+                        )
+
+                            <span
+                                class="
+                                    text-xs
+
+                                    text-zinc-500
+                                    dark:text-zinc-400
+                                "
+                            >
+                                Cadastre o WhatsApp do cliente
+                                para enviar lembretes.
+                            </span>
+
+                        @endif
+
+
+                        <button
+                            type="button"
+
+                            wire:click="
+                                setPaymentCollection(false)
+                            "
+
+                            class="
+                                inline-flex
+                                items-center
+                                justify-center
+
+                                rounded-lg
+
+                                border
+                                border-zinc-300
+
+                                bg-white
+
+                                px-3.5
+                                py-2
+
+                                text-sm
+                                font-semibold
+
+                                text-zinc-600
+
+                                transition
+
+                                hover:bg-zinc-100
+
+                                dark:border-zinc-700
+                                dark:bg-zinc-900
+                                dark:text-zinc-300
+                                dark:hover:bg-zinc-800
+                            "
+                        >
+                            Desativar nesta proposta
+                        </button>
+
+                    </div>
+
+                @endif
+
+            </section>
+
+        @endif
+
+
+        {{-- MODAL DE CONFIRMAÇÃO DO PÓS-ACEITE --}}
+        {{-- ===================================================== --}}
+
+        <div
+            x-cloak
+            x-show="confirmAction !== null"
+            x-transition.opacity
+            class="
+                fixed inset-0 z-[100]
+                flex items-center justify-center
+                p-4
+            "
+            role="dialog"
+            aria-modal="true"
+        >
+
+            {{-- BACKDROP --}}
+            <div
+                class="
+                    absolute inset-0
+                    bg-black/65
+                    backdrop-blur-sm
+                "
+                @click="confirmAction = null"
+            ></div>
+
+
+            {{-- JANELA --}}
+            <div
+                x-show="confirmAction !== null"
+
+                x-transition:enter="
+                    transition ease-out duration-200
+                "
+                x-transition:enter-start="
+                    opacity-0 scale-95 translate-y-2
+                "
+                x-transition:enter-end="
+                    opacity-100 scale-100 translate-y-0
+                "
+
+                x-transition:leave="
+                    transition ease-in duration-150
+                "
+                x-transition:leave-start="
+                    opacity-100 scale-100
+                "
+                x-transition:leave-end="
+                    opacity-0 scale-95
+                "
+
+                @click.stop
+
+                class="
+                    relative z-10
+                    w-full max-w-md
+                    overflow-hidden
+                    rounded-2xl
+                    border border-zinc-200
+                    bg-white
+                    shadow-2xl
+
+                    dark:border-zinc-800
+                    dark:bg-zinc-900
+                "
+            >
+
+                <div class="p-6">
+
+                    {{-- ÍCONE --}}
+                    <div
+                        class="
+                            flex size-11
+                            items-center justify-center
+                            rounded-full
+                        "
+
+                        :class="
+                            confirmAction === 'payment'
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                                : confirmAction === 'start'
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                                    : 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200'
+                        "
+                    >
+
+                        <svg
+                            x-show="
+                                confirmAction === 'payment'
+                                || confirmAction === 'complete'
+                            "
+                            class="size-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.3"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M5 12l4 4L19 6"
+                            />
+                        </svg>
+
+
+                        <svg
+                            x-show="confirmAction === 'start'"
+                            class="size-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M8 5v14l11-7z"
+                            />
+                        </svg>
+
+                    </div>
+
+
+                    {{-- TÍTULO --}}
+                    <h3
+                        class="
+                            mt-4
+                            text-lg font-semibold
+                            text-zinc-950
+                            dark:text-white
+                        "
+                        x-text="
+                            confirmAction === 'payment'
+                                ? 'Confirmar pagamento?'
+                                : confirmAction === 'start'
+                                    ? 'Iniciar execução?'
+                                    : 'Concluir execução?'
+                        "
+                    ></h3>
+
+
+                    {{-- TEXTO --}}
+                    <div
+                        class="
+                            mt-2
+                            text-sm leading-6
+                            text-zinc-500
+                            dark:text-zinc-400
+                        "
+                    >
+
+                        <p x-show="confirmAction === 'payment'">
+                            Confirme somente se o pagamento desta
+                            proposta já foi recebido.
+                        </p>
+
+                        <p x-show="confirmAction === 'start'">
+                            A proposta será marcada como em execução
+                            e a data de início será registrada.
+                        </p>
+
+                        <p x-show="confirmAction === 'complete'">
+                            A execução será marcada como concluída
+                            e essa informação ficará registrada no
+                            histórico da proposta.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                {{-- RODAPÉ --}}
+                <div
                     class="
-                        mt-1
+                        flex flex-col-reverse gap-2
 
-                        whitespace-nowrap
+                        border-t border-zinc-200
+                        bg-zinc-50
+                        px-6 py-4
 
-                        text-2xl
-                        font-bold
-                        tracking-tight
+                        sm:flex-row
+                        sm:justify-end
 
-                        text-zinc-950
-                        dark:text-zinc-100
-                    ">
-                    R$ {{ number_format(
-                        (float) $this->quote->total,
-                        2,
-                        ',',
-                        '.'
-                    ) }}
-                </p>
+                        dark:border-zinc-800
+                        dark:bg-zinc-950/40
+                    "
+                >
+
+                    <button
+                        type="button"
+                        @click="confirmAction = null"
+
+                        class="
+                            inline-flex
+                            items-center justify-center
+
+                            rounded-lg
+                            border border-zinc-300
+
+                            bg-white
+                            px-4 py-2.5
+
+                            text-sm font-semibold
+                            text-zinc-700
+
+                            transition
+                            hover:bg-zinc-100
+
+                            dark:border-zinc-700
+                            dark:bg-zinc-900
+                            dark:text-zinc-200
+                            dark:hover:bg-zinc-800
+                        "
+                    >
+                        Cancelar
+                    </button>
+
+
+                    <button
+                        type="button"
+
+                        @click="
+                            if (confirmAction === 'payment') {
+                                $wire.markAsPaid();
+                            } else if (confirmAction === 'start') {
+                                $wire.startExecution();
+                            } else if (confirmAction === 'complete') {
+                                $wire.completeExecution();
+                            }
+
+                            confirmAction = null;
+                        "
+
+                        class="
+                            inline-flex
+                            items-center justify-center
+
+                            rounded-lg
+                            bg-emerald-600
+
+                            px-4 py-2.5
+
+                            text-sm font-semibold
+                            text-white
+
+                            transition
+                            hover:bg-emerald-700
+
+                            dark:bg-emerald-500
+                            dark:text-zinc-950
+                            dark:hover:bg-emerald-400
+                        "
+                    >
+
+                        <span
+                            x-text="
+                                confirmAction === 'payment'
+                                    ? 'Confirmar pagamento'
+                                    : confirmAction === 'start'
+                                        ? 'Iniciar execução'
+                                        : 'Concluir execução'
+                            "
+                        ></span>
+
+                    </button>
+
+                </div>
 
             </div>
 
         </div>
 
-    </div>
+</section>
 
+    @endif
 
     {{-- ========================================================= --}}
     {{-- GRID PRINCIPAL --}}
     {{-- ========================================================= --}}
 
-    <div
-        class="
+    <div class="
             grid
             items-start
             gap-6
@@ -1362,8 +3844,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
             {{-- CLIENTE --}}
             {{-- ================================================== --}}
 
-            <section
-                class="
+            <section class="
                     rounded-2xl
 
                     border border-zinc-200
@@ -1376,8 +3857,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
                     dark:bg-zinc-900
                 ">
 
-                <div
-                    class="
+                <div class="
                         border-b border-zinc-200
 
                         px-6 py-4
@@ -1396,8 +3876,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
 
                         {{-- AVATAR --}}
 
-                        <div
-                            class="
+                        <div class="
                                 flex size-11
                                 shrink-0
                                 items-center
@@ -1414,19 +3893,18 @@ new #[Title('Orçamento | Fechou')] class extends Component
                                 dark:text-emerald-300
                             ">
                             {{ mb_strtoupper(
-                                mb_substr(
-                                    $this->quote->client->name,
-                                    0,
-                                    1
-                                )
-                            ) }}
+    mb_substr(
+        $this->quote->client->name,
+        0,
+        1
+    )
+) }}
                         </div>
 
 
                         <div class="min-w-0">
 
-                            <p
-                                class="
+                            <p class="
                                     font-semibold
 
                                     text-zinc-950
@@ -1436,8 +3914,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
                             </p>
 
 
-                            <div
-                                class="
+                            <div class="
                                     mt-2
                                     space-y-1
 
@@ -1449,57 +3926,54 @@ new #[Title('Orçamento | Fechou')] class extends Component
 
                                 @if ($this->quote->client->document)
 
-                                <p>
-                                    CPF/CNPJ:
+                                    <p>
+                                        CPF/CNPJ:
 
-                                    <span
-                                        class="
-                                                text-zinc-700
-                                                dark:text-zinc-300
-                                            ">
-                                        {{ $this->quote->client->document }}
-                                    </span>
-                                </p>
+                                        <span class="
+                                                                    text-zinc-700
+                                                                    dark:text-zinc-300
+                                                                ">
+                                            {{ $this->quote->client->document }}
+                                        </span>
+                                    </p>
 
                                 @endif
 
 
                                 @if ($this->quote->client->whatsapp)
 
-                                <p>
-                                    WhatsApp:
+                                    <p>
+                                        WhatsApp:
 
-                                    <span
-                                        class="
-                                                text-zinc-700
-                                                dark:text-zinc-300
-                                            ">
-                                        {{ $this->quote->client->whatsapp }}
-                                    </span>
-                                </p>
+                                        <span class="
+                                                                    text-zinc-700
+                                                                    dark:text-zinc-300
+                                                                ">
+                                            {{ $this->quote->client->whatsapp }}
+                                        </span>
+                                    </p>
 
                                 @elseif ($this->quote->client->phone)
 
-                                <p>
-                                    Telefone:
+                                    <p>
+                                        Telefone:
 
-                                    <span
-                                        class="
-                                                text-zinc-700
-                                                dark:text-zinc-300
-                                            ">
-                                        {{ $this->quote->client->phone }}
-                                    </span>
-                                </p>
+                                        <span class="
+                                                                    text-zinc-700
+                                                                    dark:text-zinc-300
+                                                                ">
+                                            {{ $this->quote->client->phone }}
+                                        </span>
+                                    </p>
 
                                 @endif
 
 
                                 @if ($this->quote->client->email)
 
-                                <p class="break-all">
-                                    {{ $this->quote->client->email }}
-                                </p>
+                                    <p class="break-all">
+                                        {{ $this->quote->client->email }}
+                                    </p>
 
                                 @endif
 
@@ -1520,43 +3994,42 @@ new #[Title('Orçamento | Fechou')] class extends Component
 
             @if ($this->quote->description)
 
-            <section
-                class="
-                        rounded-2xl
+                <section class="
+                                            rounded-2xl
 
-                        border border-zinc-200
+                                            border border-zinc-200
 
-                        bg-white
+                                            bg-white
 
-                        p-6
+                                            p-6
 
-                        shadow-sm
+                                            shadow-sm
 
-                        dark:border-zinc-800
-                        dark:bg-zinc-900
-                    ">
+                                            dark:border-zinc-800
+                                            dark:bg-zinc-900
+                                        ">
 
-                <h3 class="font-semibold text-zinc-950 dark:text-white">
-                    Descrição
-                </h3>
+                    <h3 class="font-semibold text-zinc-950 dark:text-white">
+                        Descrição
+                    </h3>
 
 
-                <p
-                    class="
-                            mt-3
+                    <p class="
+                                                mt-3
 
-                            whitespace-pre-line
+                                                whitespace-pre-line
 
-                            text-sm
-                            leading-6
+                                                text-sm
+                                                leading-6
 
-                            text-zinc-600
-                            dark:text-zinc-300
-                        ">
-                    {{ $this->quote->description }}
-                </p>
+                                                text-zinc-600
+                                                dark:text-zinc-300
 
-            </section>
+                                                [overflow-wrap:anywhere] break-words max-w-full">
+                        {{ $this->quote->description }}
+                    </p>
+
+                </section>
 
             @endif
 
@@ -1565,8 +4038,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
             {{-- ITENS --}}
             {{-- ================================================== --}}
 
-            <section
-                class="
+            <section class="
                     overflow-hidden
 
                     rounded-2xl
@@ -1581,8 +4053,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
                     dark:bg-zinc-900
                 ">
 
-                <div
-                    class="
+                <div class="
                         flex
                         items-center
                         justify-between
@@ -1598,11 +4069,10 @@ new #[Title('Orçamento | Fechou')] class extends Component
                     <div>
 
                         <h3 class="font-semibold text-zinc-950 dark:text-white">
-                            Itens do orçamento
+                            Itens da proposta
                         </h3>
 
-                        <p
-                            class="
+                        <p class="
                                 mt-0.5
 
                                 text-sm
@@ -1613,8 +4083,8 @@ new #[Title('Orçamento | Fechou')] class extends Component
                             {{ $this->quote->items->count() }}
 
                             {{ $this->quote->items->count() === 1
-                                ? 'item'
-                                : 'itens'
+    ? 'item'
+    : 'itens'
                             }}
                         </p>
 
@@ -1623,8 +4093,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
                 </div>
 
 
-                <div
-                    class="
+                <div class="
                         divide-y
                         divide-zinc-100
 
@@ -1633,139 +4102,136 @@ new #[Title('Orçamento | Fechou')] class extends Component
 
                     @foreach ($this->quote->items as $item)
 
-                    <div
-                        wire:key="quote-item-{{ $item->id }}"
+                                        <div wire:key="quote-item-{{ $item->id }}" class="
+                                                                                                                                    px-6 py-4
 
-                        class="
-                                px-6 py-4
+                                                                                                                                    transition
 
-                                transition
+                                                                                                                                    hover:bg-zinc-50
 
-                                hover:bg-zinc-50
+                                                                                                                                    dark:hover:bg-zinc-800/30
+                                                                                                                                ">
 
-                                dark:hover:bg-zinc-800/30
-                            ">
+                                            <div class="
+                                                                                                                                        flex flex-col
+                                                                                                                                        gap-4
 
-                        <div
-                            class="
-                                    flex flex-col
-                                    gap-4
+                                                                                                                                        sm:flex-row
+                                                                                                                                        sm:items-center
+                                                                                                                                        sm:justify-between
+                                                                                                                                    ">
 
-                                    sm:flex-row
-                                    sm:items-center
-                                    sm:justify-between
-                                ">
+                                                <div class="min-w-0">
 
-                            <div class="min-w-0">
+                                                    <div class="min-w-0 flex flex-wrap items-center gap-2">
 
-                                <div class="flex flex-wrap items-center gap-2">
+                                                        <p
+                                                            class="
+                                                                                                                                                    font-semibold
 
-                                    <p
-                                        class="
-                                                font-semibold
+                                                                                                                                                    text-zinc-900
+                                                                                                                                                    dark:text-white
 
-                                                text-zinc-900
-                                                dark:text-white
-                                            ">
-                                        {{ $item->description }}
-                                    </p>
+                                                                                                                                [overflow-wrap:anywhere] break-words max-w-full">
+                                                            {{ $item->description }}
+                                                        </p>
 
 
-                                    <span
-                                        class="
-                                                inline-flex
+                                                        <span
+                                                            class="
+                                                                                                                                                    inline-flex
 
-                                                rounded-full
+                                                                                                                                                    rounded-full
 
-                                                px-2 py-0.5
+                                                                                                                                                    px-2 py-0.5
 
-                                                text-[11px]
-                                                font-semibold
+                                                                                                                                                    text-[11px]
+                                                                                                                                                    font-semibold
 
-                                                {{ $this->typeClasses(
-                                                    $item->type
-                                                ) }}
-                                            ">
-                                        {{ $this->typeLabel(
-                                                $item->type
-                                            ) }}
-                                    </span>
+                                                                                                                                                    {{ $this->typeClasses(
+                            $item->type
+                        ) }}
+                                                                                                                                                ">
+                                                            {{ $this->typeLabel(
+                            $item->type
+                        ) }}
+                                                        </span>
 
-                                </div>
-
-
-                                <p
-                                    class="
-                                            mt-1
-
-                                            text-sm
-
-                                            text-zinc-500
-                                            dark:text-zinc-400
-                                        ">
-                                    {{ rtrim(
-                                            rtrim(
-                                                number_format(
-                                                    (float) $item->quantity,
-                                                    3,
-                                                    ',',
-                                                    '.'
-                                                ),
-                                                '0'
-                                            ),
-                                            ','
-                                        ) }}
-
-                                    {{ $item->unit }}
-
-                                    ×
-
-                                    R$ {{ number_format(
-                                            (float) $item->unit_price,
-                                            2,
-                                            ',',
-                                            '.'
-                                        ) }}
-                                </p>
-
-                            </div>
+                                                    </div>
 
 
-                            <div class="shrink-0 sm:text-right">
+                                                    <p
+                                                        class="
+                                                                                                                                                mt-1
 
-                                <p
-                                    class="
-                                            text-xs
+                                                                                                                                                text-sm
 
-                                            text-zinc-400
-                                            dark:text-zinc-500
-                                        ">
-                                    Total
-                                </p>
+                                                                                                                                                text-zinc-500
+                                                                                                                                                dark:text-zinc-400
+                                                                                                                                            ">
+                                                        {{ rtrim(
+                            rtrim(
+                                number_format(
+                                    (float) $item->quantity,
+                                    3,
+                                    ',',
+                                    '.'
+                                ),
+                                '0'
+                            ),
+                            ','
+                        ) }}
+
+                                                        {{ $item->unit }}
+
+                                                        ×
+
+                                                        R$ {{ number_format(
+                            (float) $item->unit_price,
+                            2,
+                            ',',
+                            '.'
+                        ) }}
+                                                    </p>
+
+                                                </div>
 
 
-                                <p
-                                    class="
-                                            mt-0.5
+                                                <div class="shrink-0 sm:text-right">
 
-                                            font-bold
+                                                    <p
+                                                        class="
+                                                                                                                                                text-xs
 
-                                            text-zinc-950
-                                            dark:text-zinc-100
-                                        ">
-                                    R$ {{ number_format(
-                                            (float) $item->total,
-                                            2,
-                                            ',',
-                                            '.'
-                                        ) }}
-                                </p>
+                                                                                                                                                text-zinc-400
+                                                                                                                                                dark:text-zinc-500
+                                                                                                                                            ">
+                                                        Total
+                                                    </p>
 
-                            </div>
 
-                        </div>
+                                                    <p
+                                                        class="
+                                                                                                                                                mt-0.5
 
-                    </div>
+                                                                                                                                                font-bold
+
+                                                                                                                                                text-zinc-950
+                                                                                                                                                dark:text-zinc-100
+                                                                                                                                            ">
+                                                        R$ {{ number_format(
+                            (float) $item->total,
+                            2,
+                            ',',
+                            '.'
+                        ) }}
+                                                    </p>
+
+                                                </div>
+
+                                            </div>
+
+                                        </div>
 
                     @endforeach
 
@@ -1780,43 +4246,41 @@ new #[Title('Orçamento | Fechou')] class extends Component
 
             @if ($this->quote->notes)
 
-            <section
-                class="
-                        rounded-2xl
+                <section class="
+                                            rounded-2xl
 
-                        border border-zinc-200
+                                            border border-zinc-200
 
-                        bg-white
+                                            bg-white
 
-                        p-6
+                                            p-6
 
-                        shadow-sm
+                                            shadow-sm
 
-                        dark:border-zinc-800
-                        dark:bg-zinc-900
-                    ">
+                                            dark:border-zinc-800
+                                            dark:bg-zinc-900
+                                        ">
 
-                <h3 class="font-semibold text-zinc-950 dark:text-white">
-                    Condições e observações
-                </h3>
+                    <h3 class="font-semibold text-zinc-950 dark:text-white">
+                        Condições e observações
+                    </h3>
 
 
-                <p
-                    class="
-                            mt-3
+                    <p class="
+                                                mt-3
 
-                            whitespace-pre-line
+                                                whitespace-pre-line
 
-                            text-sm
-                            leading-6
+                                                text-sm
+                                                leading-6
 
-                            text-zinc-600
-                            dark:text-zinc-300
-                        ">
-                    {{ $this->quote->notes }}
-                </p>
+                                                text-zinc-600
+                                                dark:text-zinc-300
+                                            ">
+                        {{ $this->quote->notes }}
+                    </p>
 
-            </section>
+                </section>
 
             @endif
 
@@ -1834,8 +4298,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
             {{-- RESUMO --}}
             {{-- ================================================== --}}
 
-            <div
-                class="
+            <div class="
                     rounded-2xl
 
                     border border-zinc-200
@@ -1865,19 +4328,18 @@ new #[Title('Orçamento | Fechou')] class extends Component
                             Subtotal
                         </span>
 
-                        <span
-                            class="
+                        <span class="
                                 font-medium
 
                                 text-zinc-900
                                 dark:text-zinc-200
                             ">
                             R$ {{ number_format(
-                                (float) $this->quote->subtotal,
-                                2,
-                                ',',
-                                '.'
-                            ) }}
+    (float) $this->quote->subtotal,
+    2,
+    ',',
+    '.'
+) }}
                         </span>
 
                     </div>
@@ -1887,37 +4349,35 @@ new #[Title('Orçamento | Fechou')] class extends Component
 
                     @if ((float) $this->quote->discount > 0)
 
-                    <div class="flex justify-between gap-4 text-sm">
+                                        <div class="flex justify-between gap-4 text-sm">
 
-                        <span class="text-zinc-500 dark:text-zinc-400">
-                            Desconto
-                        </span>
+                                            <span class="text-zinc-500 dark:text-zinc-400">
+                                                Desconto
+                                            </span>
 
 
-                        <span
-                            class="
-                                    font-medium
+                                            <span class="
+                                                                                                                                        font-medium
 
-                                    text-red-600
-                                    dark:text-red-400
-                                ">
-                            - R$ {{ number_format(
-                                    (float) $this->quote->discount,
-                                    2,
-                                    ',',
-                                    '.'
-                                ) }}
-                        </span>
+                                                                                                                                        text-red-600
+                                                                                                                                        dark:text-red-400
+                                                                                                                                    ">
+                                                - R$ {{ number_format(
+                            (float) $this->quote->discount,
+                            2,
+                            ',',
+                            '.'
+                        ) }}
+                                            </span>
 
-                    </div>
+                                        </div>
 
                     @endif
 
 
                     {{-- TOTAL --}}
 
-                    <div
-                        class="
+                    <div class="
                             border-t
                             border-zinc-200
 
@@ -1930,8 +4390,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
                             Total
                         </p>
 
-                        <p
-                            class="
+                        <p class="
                                 mt-1
 
                                 text-2xl
@@ -1942,11 +4401,11 @@ new #[Title('Orçamento | Fechou')] class extends Component
                                 dark:text-zinc-100
                             ">
                             R$ {{ number_format(
-                                (float) $this->quote->total,
-                                2,
-                                ',',
-                                '.'
-                            ) }}
+    (float) $this->quote->total,
+    2,
+    ',',
+    '.'
+) }}
                         </p>
 
                     </div>
@@ -1956,8 +4415,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
 
                 {{-- VALIDADE --}}
 
-                <div
-                    class="
+                <div class="
                         mt-5
 
                         border-t
@@ -1974,17 +4432,16 @@ new #[Title('Orçamento | Fechou')] class extends Component
                             Validade
                         </span>
 
-                        <span
-                            class="
+                        <span class="
                                 font-medium
 
                                 text-zinc-700
                                 dark:text-zinc-300
                             ">
                             {{ $this->quote
-                                ->valid_until
-                                ?->format('d/m/Y')
-                                ?? 'Sem validade'
+    ->valid_until
+        ?->format('d/m/Y')
+    ?? 'Sem validade'
                             }}
                         </span>
 
@@ -1995,8 +4452,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
 
                 {{-- VERSÃO --}}
 
-                <div
-                    class="
+                <div class="
                         mt-4
 
                         flex
@@ -2015,8 +4471,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
                         Versão
                     </span>
 
-                    <span
-                        class="
+                    <span class="
                             font-semibold
 
                             text-zinc-700
@@ -2030,8 +4485,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
 
                 {{-- STATUS --}}
 
-                <div
-                    class="
+                <div class="
                         mt-4
 
                         flex
@@ -2051,8 +4505,7 @@ new #[Title('Orçamento | Fechou')] class extends Component
                     </span>
 
 
-                    <span
-                        class="
+                    <span class="
                             inline-flex
                             rounded-full
 
@@ -2062,12 +4515,12 @@ new #[Title('Orçamento | Fechou')] class extends Component
                             font-semibold
 
                             {{ $this->statusClasses(
-                                $this->quote->status
-                            ) }}
+    $this->quote->status
+) }}
                         ">
                         {{ $this->statusLabel(
-                            $this->quote->status
-                        ) }}
+    $this->quote->status
+) }}
                     </span>
 
                 </div>
@@ -2076,193 +4529,698 @@ new #[Title('Orçamento | Fechou')] class extends Component
 
 
             {{-- ================================================== --}}
-            {{-- HISTÓRICO --}}
+            {{-- LINHA DO TEMPO DO NEGÓCIO --}}
             {{-- ================================================== --}}
 
             <div
                 class="
+                    overflow-hidden
+
                     rounded-2xl
 
-                    border border-zinc-200
+                    border
+                    border-zinc-200
 
                     bg-white
-
-                    p-5
 
                     shadow-sm
 
                     dark:border-zinc-800
                     dark:bg-zinc-900
-                ">
+                "
+            >
 
-                <div>
+                {{-- CABEÇALHO --}}
 
-                    <h3 class="font-semibold text-zinc-950 dark:text-white">
-                        Histórico
-                    </h3>
+                <div
+                    class="
+                        flex
+                        items-start
+                        gap-3
 
-                    <p
+                        border-b
+                        border-zinc-100
+
+                        px-5 py-4
+
+                        dark:border-zinc-800
+                    "
+                >
+
+                    <div
                         class="
-                            mt-1
+                            flex
+                            size-9
+                            shrink-0
+                            items-center
+                            justify-center
 
-                            text-xs
+                            rounded-xl
+
+                            bg-zinc-100
 
                             text-zinc-500
-                            dark:text-zinc-400
-                        ">
-                        Acompanhe o que aconteceu com este orçamento.
-                    </p>
+
+                            dark:bg-zinc-800
+                            dark:text-zinc-300
+                        "
+                    >
+                        <svg
+                            class="size-4.5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            aria-hidden="true"
+                        >
+                            <circle
+                                cx="12"
+                                cy="12"
+                                r="9"
+                            />
+
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M12 7v5l3 2"
+                            />
+                        </svg>
+                    </div>
+
+
+                    <div class="min-w-0">
+
+                        <h3
+                            class="
+                                font-semibold
+
+                                text-zinc-950
+                                dark:text-white
+                            "
+                        >
+                            Linha do tempo
+                        </h3>
+
+                        <p
+                            class="
+                                mt-0.5
+
+                                text-xs
+
+                                text-zinc-500
+                                dark:text-zinc-400
+                            "
+                        >
+                            Histórico comercial e operacional
+                            desta proposta.
+                        </p>
+
+                    </div>
 
                 </div>
 
 
-                <div class="mt-5">
+                {{-- ===================================================== --}}
+                {{-- RESUMO DO CICLO --}}
+                {{-- ===================================================== --}}
 
-                    @forelse ($this->quote->events as $event)
+                <div
+                    class="
+                        border-b
+                        border-zinc-100
+
+                        px-5 py-4
+
+                        dark:border-zinc-800
+                    "
+                >
 
                     <div
-                        wire:key="quote-event-{{ $event->id }}"
-
                         class="
+                            mb-3
+
+                            flex
+                            items-center
+                            justify-between
+                            gap-3
+                        "
+                    >
+
+                        <div>
+                            <p
+                                class="
+                                    text-xs
+                                    font-semibold
+
+                                    text-zinc-700
+                                    dark:text-zinc-200
+                                "
+                            >
+                                Resumo do ciclo
+                            </p>
+
+                            <p
+                                class="
+                                    mt-0.5
+
+                                    text-[11px]
+
+                                    text-zinc-400
+                                    dark:text-zinc-500
+                                "
+                            >
+                                Tempo entre as principais etapas.
+                            </p>
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        class="
+                            grid
+                            grid-cols-2
+                            gap-2
+                        "
+                    >
+
+                        @foreach (
+                            $this->cycleSummary()
+                            as $metric
+                        )
+
+                            <div
+                                data-cycle-metric="{{
+                                    $metric['key']
+                                }}"
+
+                                class="
+                                    min-w-0
+
+                                    rounded-xl
+
+                                    border
+                                    border-zinc-100
+
+                                    bg-zinc-50
+
+                                    px-3 py-2.5
+
+                                    dark:border-zinc-800
+                                    dark:bg-zinc-950/50
+                                "
+                            >
+
+                                <p
+                                    class="
+                                        truncate
+
+                                        text-[10px]
+                                        font-medium
+
+                                        text-zinc-500
+                                        dark:text-zinc-400
+                                    "
+                                >
+                                    {{ $metric['label'] }}
+                                </p>
+
+
+                                <p
+                                    class="
+                                        mt-1
+
+                                        truncate
+
+                                        text-sm
+                                        font-bold
+
+                                        {{
+                                            $metric[
+                                                'completed'
+                                            ]
+                                                ? 'text-zinc-950 dark:text-white'
+                                                : 'text-zinc-500 dark:text-zinc-400'
+                                        }}
+                                    "
+                                >
+                                    {{ $metric['value'] }}
+                                </p>
+
+
+                                <p
+                                    class="
+                                        mt-0.5
+                                        min-h-6
+
+                                        text-[9px]
+                                        leading-3
+
+                                        text-zinc-400
+                                        dark:text-zinc-600
+                                    "
+                                    title="{{
+                                        $metric['context']
+                                    }}"
+                                >
+                                    {{ $metric['context'] }}
+                                </p>
+
+                            </div>
+
+                        @endforeach
+
+                    </div>
+
+                </div>
+
+
+                {{-- EVENTOS --}}
+
+                <div class="px-5 py-5">
+
+                    @forelse (
+                        $this->timelineEvents()
+                        as $event
+                    )
+
+                        <div
+                            wire:key="quote-event-{{ $event->id }}"
+
+                            class="
                                 relative
 
                                 flex
-                                gap-3
+                                gap-4
 
-                                pb-5
+                                pb-6
 
                                 last:pb-0
-                            ">
+                            "
+                        >
 
-                        {{-- LINHA --}}
+                            {{-- LINHA VERTICAL --}}
 
-                        @if (! $loop->last)
+                            @if (! $loop->last)
 
-                        <div
-                            class="
+                                <div
+                                    class="
                                         absolute
 
-                                        left-[5px]
-                                        top-3
+                                        left-[15px]
+                                        top-8
+                                        bottom-0
 
-                                        h-full
                                         w-px
 
                                         bg-zinc-200
 
                                         dark:bg-zinc-800
-                                    "></div>
-
-                        @endif
-
-
-                        {{-- PONTO --}}
-
-                        <div
-                            class="
-                                    relative
-                                    z-10
-
-                                    mt-1
-
-                                    size-3
-                                    shrink-0
-
-                                    rounded-full
-
-                                    ring-4
-                                    ring-white
-
-                                    {{ $this->eventClasses(
-                                        $event->type
-                                    ) }}
-
-                                    dark:ring-zinc-900
-                                "></div>
-
-
-                        {{-- TEXTO --}}
-
-                        <div class="min-w-0">
-
-                            <p
-                                class="
-                                        text-sm
-                                        font-medium
-
-                                        text-zinc-800
-                                        dark:text-zinc-200
-                                    ">
-                                {{ $this->eventLabel(
-                                        $event->type
-                                    ) }}
-                            </p>
-
-
-                            {{-- Detalhe da versão criada --}}
-
-                            @if (
-                            $event->type === 'version_created'
-                            && isset(
-                            $event->metadata['new_quote_number']
-                            )
-                            )
-
-                            <p
-                                class="
-                                            mt-0.5
-
-                                            text-xs
-                                            font-medium
-
-                                            text-violet-600
-                                            dark:text-violet-400
-                                        ">
-                                Orçamento
-                                #{{ str_pad(
-                                            $event->metadata['new_quote_number'],
-                                            4,
-                                            '0',
-                                            STR_PAD_LEFT
-                                        ) }}
-
-                                @if (isset($event->metadata['version']))
-                                • Versão {{ $event->metadata['version'] }}
-                                @endif
-                            </p>
+                                    "
+                                ></div>
 
                             @endif
 
 
-                            <p
+                            {{-- MARCADOR --}}
+
+                            <div
                                 class="
-                                        mt-0.5
+                                    relative
+                                    z-10
+
+                                    flex
+                                    size-8
+                                    shrink-0
+                                    items-center
+                                    justify-center
+
+                                    rounded-full
+
+                                    bg-white
+
+                                    ring-1
+                                    ring-zinc-200
+
+                                    dark:bg-zinc-900
+                                    dark:ring-zinc-700
+                                "
+                            >
+                                <span
+                                    class="
+                                        size-2.5
+
+                                        rounded-full
+
+                                        {{ $this->eventClasses(
+                                            $event->type
+                                        ) }}
+                                    "
+                                ></span>
+                            </div>
+
+
+                            {{-- CONTEÚDO --}}
+
+                            <div
+                                class="
+                                    min-w-0
+                                    flex-1
+                                "
+                            >
+
+                                <div
+                                    class="
+                                        flex
+                                        flex-wrap
+                                        items-center
+                                        gap-2
+                                    "
+                                >
+
+                                    <p
+                                        class="
+                                            text-sm
+                                            font-semibold
+
+                                            text-zinc-800
+                                            dark:text-zinc-100
+                                        "
+                                    >
+                                        {{ $this->eventLabel(
+                                            $event->type
+                                        ) }}
+                                    </p>
+
+
+                                    <span
+                                        class="
+                                            inline-flex
+
+                                            rounded-full
+
+                                            px-2 py-0.5
+
+                                            text-[10px]
+                                            font-semibold
+
+                                            {{
+                                                $this
+                                                    ->eventPhaseClasses(
+                                                        $event->type
+                                                    )
+                                            }}
+                                        "
+                                    >
+                                        {{
+                                            $this->eventPhaseLabel(
+                                                $event->type
+                                            )
+                                        }}
+                                    </span>
+
+                                </div>
+
+
+                                <p
+                                    class="
+                                        mt-1
 
                                         text-xs
 
                                         text-zinc-500
                                         dark:text-zinc-400
-                                    ">
-                                {{ $event->created_at->format(
+                                    "
+                                >
+                                    {{ $event->created_at->format(
                                         'd/m/Y \à\s H:i'
                                     ) }}
-                            </p>
+                                </p>
+
+
+                                {{-- NOVA VERSÃO --}}
+
+                                @if (
+                                    $event->type
+                                        === 'version_created'
+                                    && isset(
+                                        $event->metadata[
+                                            'new_quote_number'
+                                        ]
+                                    )
+                                )
+
+                                    <div
+                                        class="
+                                            mt-2
+
+                                            inline-flex
+                                            flex-wrap
+                                            items-center
+                                            gap-1
+
+                                            rounded-lg
+
+                                            bg-violet-50
+
+                                            px-2.5 py-1.5
+
+                                            text-xs
+                                            font-medium
+                                            text-violet-700
+
+                                            dark:bg-violet-950/40
+                                            dark:text-violet-300
+                                        "
+                                    >
+                                        Proposta
+
+                                        #{{ str_pad(
+                                            $event->metadata[
+                                                'new_quote_number'
+                                            ],
+                                            4,
+                                            '0',
+                                            STR_PAD_LEFT
+                                        ) }}
+
+                                        @if (
+                                            isset(
+                                                $event->metadata[
+                                                    'version'
+                                                ]
+                                            )
+                                        )
+                                            <span
+                                                class="
+                                                    text-violet-400
+                                                    dark:text-violet-600
+                                                "
+                                            >
+                                                •
+                                            </span>
+
+                                            Versão {{
+                                                $event->metadata[
+                                                    'version'
+                                                ]
+                                            }}
+                                        @endif
+                                    </div>
+
+                                @endif
+
+
+                                {{-- FEEDBACK DA RECUSA --}}
+
+                                @if (
+                                    $event->type === 'rejected'
+                                    && (
+                                        ! empty(
+                                            $event->metadata[
+                                                'label'
+                                            ]
+                                            ?? null
+                                        )
+                                        || ! empty(
+                                            $event->metadata[
+                                                'comment'
+                                            ]
+                                            ?? null
+                                        )
+                                    )
+                                )
+
+                                    <div
+                                        class="
+                                            mt-2
+
+                                            rounded-lg
+
+                                            border
+                                            border-red-100
+
+                                            bg-red-50/70
+
+                                            px-3 py-2.5
+
+                                            text-xs
+
+                                            dark:border-red-950
+                                            dark:bg-red-950/20
+                                        "
+                                    >
+
+                                        @if (
+                                            ! empty(
+                                                $event->metadata[
+                                                    'label'
+                                                ]
+                                                ?? null
+                                            )
+                                        )
+
+                                            <p
+                                                class="
+                                                    font-semibold
+
+                                                    text-red-700
+                                                    dark:text-red-300
+                                                "
+                                            >
+                                                {{
+                                                    $event->metadata[
+                                                        'label'
+                                                    ]
+                                                }}
+                                            </p>
+
+                                        @endif
+
+
+                                        @if (
+                                            ! empty(
+                                                $event->metadata[
+                                                    'comment'
+                                                ]
+                                                ?? null
+                                            )
+                                        )
+
+                                            <p
+                                                class="
+                                                    mt-1
+
+                                                    leading-5
+
+                                                    text-red-600
+                                                    dark:text-red-400
+                                                "
+                                            >
+                                                {{
+                                                    $event->metadata[
+                                                        'comment'
+                                                    ]
+                                                }}
+                                            </p>
+
+                                        @endif
+
+                                    </div>
+
+                                @endif
+
+                            </div>
 
                         </div>
 
-                    </div>
-
                     @empty
 
-                    <p
-                        class="
-                                text-sm
+                        <div
+                            class="
+                                rounded-xl
 
-                                text-zinc-500
-                                dark:text-zinc-400
-                            ">
-                        Nenhum evento registrado.
-                    </p>
+                                border
+                                border-dashed
+                                border-zinc-200
+
+                                px-4 py-8
+
+                                text-center
+
+                                dark:border-zinc-800
+                            "
+                        >
+
+                            <div
+                                class="
+                                    mx-auto
+
+                                    flex
+                                    size-9
+                                    items-center
+                                    justify-center
+
+                                    rounded-full
+
+                                    bg-zinc-100
+
+                                    text-zinc-400
+
+                                    dark:bg-zinc-800
+                                    dark:text-zinc-500
+                                "
+                            >
+                                <svg
+                                    class="size-4"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        d="M12 8v4l2 2"
+                                    />
+
+                                    <circle
+                                        cx="12"
+                                        cy="12"
+                                        r="9"
+                                    />
+                                </svg>
+                            </div>
+
+                            <p
+                                class="
+                                    mt-3
+
+                                    text-sm
+                                    font-medium
+
+                                    text-zinc-600
+                                    dark:text-zinc-300
+                                "
+                            >
+                                Nenhum evento registrado
+                            </p>
+
+                            <p
+                                class="
+                                    mt-1
+
+                                    text-xs
+
+                                    text-zinc-400
+                                    dark:text-zinc-500
+                                "
+                            >
+                                Os acontecimentos desta proposta
+                                aparecerão aqui.
+                            </p>
+
+                        </div>
 
                     @endforelse
 
@@ -2273,5 +5231,3 @@ new #[Title('Orçamento | Fechou')] class extends Component
         </aside>
 
     </div>
-
-</div>
