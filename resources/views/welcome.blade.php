@@ -406,7 +406,6 @@
                             @foreach ([
                                 'Propostas ilimitadas',
                                 'Tudo do plano Grátis',
-                                'Versionamento de propostas',
                                 'Follow-up inteligente',
                                 'Central de notificações',
                                 'Logo e identidade da empresa',

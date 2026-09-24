@@ -1,8 +1,6 @@
 <?php
 
-use App\Enums\PlanFeature;
 use App\Models\Quote;
-use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
@@ -64,23 +62,6 @@ new #[Title('Proposta | Fechou')]
             ->whereKey($this->quoteId)
             ->firstOrFail();
     }
-
-    #[Computed]
-    public function canUseVersioning(): bool
-    {
-        $business = Auth::user()->business;
-
-        if (!$business) {
-            return false;
-        }
-
-        return app(SubscriptionService::class)
-            ->hasFeature(
-                $business,
-                PlanFeature::QUOTE_VERSIONING
-            );
-    }
-
 
     /*
     |--------------------------------------------------------------------------
@@ -231,306 +212,6 @@ new #[Title('Proposta | Fechou')]
         unset($this->quote);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Criar nova versão
-    |--------------------------------------------------------------------------
-    */
-
-    public function createNewVersion()
-    {
-        $business = Auth::user()->business;
-
-        abort_unless($business, 403);
-
-        /*
-         * Versionamento é um recurso do plano Pro.
-         *
-         * A checagem também existe no servidor para impedir
-         * que a ação seja chamada manualmente pelo Livewire.
-         */
-        if (
-            !app(SubscriptionService::class)->hasFeature(
-                $business,
-                PlanFeature::QUOTE_VERSIONING
-            )
-        ) {
-            session()->flash(
-                'upgrade_required',
-                'O versionamento de propostas está disponível no Fechou Pro.'
-            );
-
-            return $this->redirect(
-                route('settings.subscription'),
-                navigate: true
-            );
-        }
-
-        $newQuote = DB::transaction(function () use ($business) {
-
-            /*
-             * Carrega e trava a proposta original.
-             */
-            $source = $business
-                ->quotes()
-                ->with([
-                    'items' => fn($query) =>
-                        $query->orderBy('sort_order'),
-                ])
-                ->whereKey($this->quoteId)
-                ->lockForUpdate()
-                ->firstOrFail();
-
-            /*
-             * Rascunho não precisa gerar nova versão.
-             *
-             * Se chegar aqui por algum motivo, apenas
-             * retornamos o próprio orçamento.
-             */
-            if ($source->status === 'draft') {
-                return $source;
-            }
-
-            /*
-             * Todas as versões apontam para a primeira
-             * proposta da família.
-             *
-             * V1:
-             * root_quote_id = null
-             *
-             * V2:
-             * root_quote_id = ID da V1
-             *
-             * V3:
-             * root_quote_id = ID da V1
-             */
-            $rootId =
-                $source->root_quote_id
-                ?: $source->id;
-
-            /*
-             * Descobre qual é a maior versão existente
-             * desta proposta.
-             */
-            $currentMaxVersion = $business
-                ->quotes()
-                ->withTrashed()
-                ->where(function ($query) use ($rootId) {
-                    $query
-                        ->whereKey($rootId)
-                        ->orWhere(
-                            'root_quote_id',
-                            $rootId
-                        );
-                })
-                ->max('version');
-
-            $nextVersion =
-                ((int) $currentMaxVersion) + 1;
-
-            /*
-             * Próximo número geral de orçamento.
-             */
-            $lastQuote = $business
-                ->quotes()
-                ->withTrashed()
-                ->lockForUpdate()
-                ->orderByDesc('number')
-                ->first();
-
-            $nextNumber =
-                ($lastQuote?->number ?? 0) + 1;
-
-            /*
-             * Validade.
-             *
-             * Se a proposta anterior ainda estiver válida,
-             * mantemos a data.
-             *
-             * Se estiver vencida ou sem validade,
-             * criamos uma nova validade de 7 dias.
-             */
-            if (
-                $source->valid_until
-                && $source->valid_until
-                    ->copy()
-                    ->endOfDay()
-                    ->isFuture()
-            ) {
-                $validUntil =
-                    $source->valid_until->copy();
-            } else {
-                $validUntil =
-                    now()
-                        ->addDays(7)
-                        ->startOfDay();
-            }
-
-            /*
-             * Cria uma nova proposta independente.
-             *
-             * O public_token será criado automaticamente
-             * pelo model Quote.
-             */
-            $newQuote = $business
-                ->quotes()
-                ->create([
-                    'client_id' =>
-                        $source->client_id,
-
-                    'root_quote_id' =>
-                        $rootId,
-
-                    'version' =>
-                        $nextVersion,
-
-                    'number' =>
-                        $nextNumber,
-
-                    'title' =>
-                        $source->title,
-
-                    'description' =>
-                        $source->description,
-
-                    'subtotal' =>
-                        $source->subtotal,
-
-                    'discount' =>
-                        $source->discount,
-
-                    'total' =>
-                        $source->total,
-
-                    'status' =>
-                        'draft',
-
-                    'valid_until' =>
-                        $validUntil,
-
-                    'notes' =>
-                        $source->notes,
-
-                    'sent_at' =>
-                        null,
-
-                    'first_viewed_at' =>
-                        null,
-
-                    'accepted_at' =>
-                        null,
-
-                    'rejected_at' =>
-                        null,
-                ]);
-
-            /*
-             * Copia todos os itens.
-             */
-            $newQuote
-                ->items()
-                ->createMany(
-                    $source
-                        ->items
-                        ->map(fn($item) => [
-                            'type' =>
-                                $item->type,
-
-                            'description' =>
-                                $item->description,
-
-                            'quantity' =>
-                                $item->quantity,
-
-                            'unit' =>
-                                $item->unit,
-
-                            'unit_price' =>
-                                $item->unit_price,
-
-                            'total' =>
-                                $item->total,
-
-                            'sort_order' =>
-                                $item->sort_order,
-                        ])
-                        ->all()
-                );
-
-            /*
-             * Histórico da nova versão.
-             */
-            $newQuote
-                ->events()
-                ->create([
-                    'type' =>
-                        'created',
-
-                    'metadata' => [
-                        'source_quote_id' =>
-                            $source->id,
-
-                        'source_quote_number' =>
-                            $source->number,
-
-                        'version' =>
-                            $nextVersion,
-                    ],
-                ]);
-
-            /*
-             * Histórico da proposta original.
-             */
-            $source
-                ->events()
-                ->create([
-                    'type' =>
-                        'version_created',
-
-                    'metadata' => [
-                        'new_quote_id' =>
-                            $newQuote->id,
-
-                        'new_quote_number' =>
-                            $newQuote->number,
-
-                        'version' =>
-                            $nextVersion,
-                    ],
-                ]);
-
-            return $newQuote;
-        });
-
-        /*
-         * Caso fosse rascunho.
-         */
-        if ($newQuote->id === $this->quoteId) {
-            return $this->redirect(
-                route(
-                    'quotes.edit',
-                    $newQuote->id
-                ),
-                navigate: true
-            );
-        }
-
-        session()->flash(
-            'success',
-            'Nova versão criada. Revise as informações antes de enviar ao cliente.'
-        );
-
-        /*
-         * A nova versão já abre em modo edição.
-         */
-        return $this->redirect(
-            route(
-                'quotes.edit',
-                $newQuote->id
-            ),
-            navigate: true
-        );
-    }
     /*
     |--------------------------------------------------------------------------
     | Pós-aceite
@@ -1112,8 +793,6 @@ new #[Title('Proposta | Fechou')]
             'rejected' =>
                 'Cliente recusou',
 
-            'version_created' =>
-                'Nova versão criada',
             'follow_up' => 'Follow-up realizado',
 
             'payment_received' =>
@@ -1223,11 +902,6 @@ new #[Title('Proposta | Fechou')]
                 'bg-emerald-50 text-emerald-700 '
                 . 'dark:bg-emerald-950/50 '
                 . 'dark:text-emerald-300',
-
-            'version_created' =>
-                'bg-violet-50 text-violet-700 '
-                . 'dark:bg-violet-950/50 '
-                . 'dark:text-violet-300',
 
             default =>
                 'bg-zinc-100 text-zinc-600 '
@@ -1485,9 +1159,6 @@ new #[Title('Proposta | Fechou')]
                 'bg-blue-500',
 
             'updated' =>
-                'bg-violet-500',
-
-            'version_created' =>
                 'bg-violet-500',
 
             'follow_up' =>
@@ -1811,82 +1482,6 @@ new #[Title('Proposta | Fechou')]
                                                                                                         ">
                                     Editar proposta
                                 </a>
-                @else
-                    @if ($this->canUseVersioning)
-                        <button type="button" wire:click="createNewVersion"
-                            wire:confirm="Será criada uma nova proposta em rascunho com os mesmos dados desta proposta. Deseja continuar?"
-                            wire:loading.attr="disabled" wire:target="createNewVersion" class="
-                        inline-flex
-                        items-center
-                        justify-center
-                        gap-1.5
-
-                        rounded-lg
-
-                        border border-zinc-300
-                        bg-transparent
-
-                        px-3 py-2
-
-                        text-xs font-semibold
-                        text-zinc-600
-
-                        transition
-
-                        hover:bg-zinc-100
-                        hover:text-zinc-950
-
-                        dark:border-zinc-700
-                        dark:text-zinc-300
-                        dark:hover:bg-zinc-800
-                        dark:hover:text-white
-                    ">
-                            <span wire:loading.remove wire:target="createNewVersion">
-                                Criar nova versão
-                            </span>
-                            <span wire:loading wire:target="createNewVersion">
-                                Criando...
-                            </span>
-                        </button>
-                    @else
-                        <a href="{{ route('settings.subscription') }}" wire:navigate class="
-                        inline-flex
-                        items-center
-                        justify-center
-                        gap-1.5
-
-                        rounded-lg
-
-                        border border-zinc-300
-                        bg-transparent
-
-                        px-3 py-2
-
-                        text-xs font-semibold
-                        text-zinc-600
-
-                        transition
-
-                        hover:bg-zinc-100
-                        hover:text-zinc-950
-
-                        dark:border-zinc-700
-                        dark:text-zinc-300
-                        dark:hover:bg-zinc-800
-                        dark:hover:text-white
-                    ">
-                            Criar nova versão
-                            <span class="
-                                                                            rounded-full
-                                                                            bg-violet-200/70
-                                                                            px-1.5 py-0.5
-                                                                            text-[10px] font-bold
-                                                                            dark:bg-violet-900
-                                                                        ">
-                                PRO
-                            </span>
-                        </a>
-                    @endif
                 @endif
 
                 <a
@@ -4962,79 +4557,6 @@ new #[Title('Proposta | Fechou')]
                                         'd/m/Y \à\s H:i'
                                     ) }}
                                 </p>
-
-
-                                {{-- NOVA VERSÃO --}}
-
-                                @if (
-                                    $event->type
-                                        === 'version_created'
-                                    && isset(
-                                        $event->metadata[
-                                            'new_quote_number'
-                                        ]
-                                    )
-                                )
-
-                                    <div
-                                        class="
-                                            mt-2
-
-                                            inline-flex
-                                            flex-wrap
-                                            items-center
-                                            gap-1
-
-                                            rounded-lg
-
-                                            bg-violet-50
-
-                                            px-2.5 py-1.5
-
-                                            text-xs
-                                            font-medium
-                                            text-violet-700
-
-                                            dark:bg-violet-950/40
-                                            dark:text-violet-300
-                                        "
-                                    >
-                                        Proposta
-
-                                        #{{ str_pad(
-                                            $event->metadata[
-                                                'new_quote_number'
-                                            ],
-                                            4,
-                                            '0',
-                                            STR_PAD_LEFT
-                                        ) }}
-
-                                        @if (
-                                            isset(
-                                                $event->metadata[
-                                                    'version'
-                                                ]
-                                            )
-                                        )
-                                            <span
-                                                class="
-                                                    text-violet-400
-                                                    dark:text-violet-600
-                                                "
-                                            >
-                                                •
-                                            </span>
-
-                                            Versão {{
-                                                $event->metadata[
-                                                    'version'
-                                                ]
-                                            }}
-                                        @endif
-                                    </div>
-
-                                @endif
 
 
                                 {{-- FEEDBACK DA RECUSA --}}

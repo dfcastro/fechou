@@ -353,9 +353,6 @@ new #[Title('Plano e assinatura | Fechou')]
             'whatsapp_sharing' =>
                 'Compartilhamento pelo WhatsApp',
 
-            'quote_versioning' =>
-                'Versionamento de propostas',
-
             'follow_up' =>
                 'Follow-up inteligente',
 
@@ -1197,7 +1194,6 @@ new #[Title('Plano e assinatura | Fechou')]
 
                             @foreach ([
                                     'Propostas ilimitadas',
-                                    'Versionamento de propostas',
                                     'Follow-up inteligente',
                                     'Central de notificações',
                                     'Logo personalizada',
@@ -1607,7 +1603,6 @@ new #[Title('Plano e assinatura | Fechou')]
                         @foreach ([
                                 'Propostas ilimitadas',
                                 'Tudo do plano Grátis',
-                                'Versionamento de propostas',
                                 'Follow-up inteligente',
                                 'Central de notificações',
                                 'Logo e identidade da empresa',

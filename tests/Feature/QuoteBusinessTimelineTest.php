@@ -122,39 +122,4 @@ class QuoteBusinessTimelineTest extends TestCase
                 'Execução'
             );
     }
-
-
-    public function test_event_label_has_only_one_version_created_mapping(): void
-    {
-        $source = file_get_contents(
-            resource_path(
-                'views/pages/quotes/show.blade.php'
-            )
-        );
-
-        $start = strpos(
-            $source,
-            'public function eventLabel('
-        );
-
-        $end = strpos(
-            $source,
-            'public function timelineEvents()',
-            $start
-        );
-
-        $method = substr(
-            $source,
-            $start,
-            $end - $start
-        );
-
-        $this->assertSame(
-            1,
-            substr_count(
-                $method,
-                "'version_created' =>"
-            )
-        );
-    }
 }

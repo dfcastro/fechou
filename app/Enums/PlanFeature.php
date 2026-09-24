@@ -25,8 +25,6 @@ enum PlanFeature: string
     |--------------------------------------------------------------------------
     */
 
-    case QUOTE_VERSIONING = 'quote_versioning';
-
     case FOLLOW_UP = 'follow_up';
 
     case NOTIFICATIONS = 'notifications';

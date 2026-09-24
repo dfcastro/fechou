@@ -73,7 +73,6 @@ class BusinessBrandingPlanTest extends TestCase
     {
         return [
             ...$this->freeFeatures(),
-            PlanFeature::QUOTE_VERSIONING->value,
             PlanFeature::FOLLOW_UP->value,
             PlanFeature::NOTIFICATIONS->value,
             PlanFeature::CUSTOM_BRANDING->value,

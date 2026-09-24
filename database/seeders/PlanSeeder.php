@@ -31,10 +31,10 @@ class PlanSeeder extends Seeder
                 'billing_interval' => 'month',
 
                 /*
-                 * 5 novas propostas raiz por ciclo.
+                 * 5 novas propostas por ciclo.
                  *
-                 * Versões de uma proposta existente
-                 * não consumirão uma nova unidade.
+                 * Duplicações são propostas independentes
+                 * e também consomem uma unidade.
                  */
                 'quote_limit' => 5,
 
@@ -89,7 +89,6 @@ class PlanSeeder extends Seeder
                         /*
                          * Recursos Pro.
                          */
-                    PlanFeature::QUOTE_VERSIONING->value,
                     PlanFeature::FOLLOW_UP->value,
                     PlanFeature::NOTIFICATIONS->value,
                     PlanFeature::CUSTOM_BRANDING->value,

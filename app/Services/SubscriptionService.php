@@ -210,7 +210,6 @@ class SubscriptionService
         return $business
             ->quotes()
             ->withTrashed()
-            ->whereNull('root_quote_id')
             ->whereBetween(
                 'created_at',
                 [

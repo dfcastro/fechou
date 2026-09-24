@@ -51,7 +51,6 @@ class PublicQuoteTest extends TestCase
         if ($isPro) {
             $features = [
                 ...$features,
-                PlanFeature::QUOTE_VERSIONING->value,
                 PlanFeature::FOLLOW_UP->value,
                 PlanFeature::NOTIFICATIONS->value,
                 PlanFeature::CUSTOM_BRANDING->value,

@@ -200,7 +200,7 @@ class SubscriptionServiceTest extends TestCase
         );
     }
 
-    public function test_quote_versions_do_not_consume_additional_limit(): void
+    public function test_independent_duplicate_consumes_additional_limit(): void
     {
         $business = Business::factory()->create();
 
@@ -211,32 +211,40 @@ class SubscriptionServiceTest extends TestCase
             $plan
         );
 
-        $rootQuote = $this->createQuote(
-            $business,
-            [
-                'root_quote_id' => null,
-                'version' => 1,
-            ]
-        );
-
         $this->createQuote(
             $business,
             [
-                'root_quote_id' => $rootQuote->id,
-                'version' => 2,
+                'root_quote_id' => null,
+            ]
+        );
+
+        /*
+         * Uma duplicação é outra proposta independente.
+         * Portanto também consome uma unidade da cota.
+         */
+        $this->createQuote(
+            $business,
+            [
+                'root_quote_id' => null,
             ]
         );
 
         $this->assertSame(
-            1,
+            2,
             $this->service->quotesUsed(
                 $business
             )
         );
 
         $this->assertSame(
-            1,
+            0,
             $this->service->quotesRemaining(
+                $business
+            )
+        );
+
+        $this->assertFalse(
+            $this->service->canCreateQuote(
                 $business
             )
         );

@@ -43,7 +43,6 @@ class SubscriptionBillingAccessTest extends TestCase
                 PlanFeature::PUBLIC_QUOTE_LINK->value,
                 PlanFeature::PDF_EXPORT->value,
                 PlanFeature::WHATSAPP_SHARING->value,
-                PlanFeature::QUOTE_VERSIONING->value,
                 PlanFeature::FOLLOW_UP->value,
                 PlanFeature::NOTIFICATIONS->value,
                 PlanFeature::CUSTOM_BRANDING->value,
