@@ -1,6 +1,7 @@
 <?php
 
 use App\Support\BrazilianInput;
+use App\Rules\ValidBrazilianDocument;
 use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Title;
@@ -73,17 +74,6 @@ new #[Title('Primeiros passos | Fechou')]
 
     public function save(): void
     {
-        /* FECHOU: NORMALIZAÇÃO DE CAMPOS */
-        $this->document =
-            BrazilianInput::document(
-                $this->document
-            ) ?? '';
-
-        $this->whatsapp =
-            BrazilianInput::phone(
-                $this->whatsapp
-            ) ?? '';
-
         $user = Auth::user();
         $business = $user->business;
 
@@ -102,6 +92,7 @@ new #[Title('Primeiros passos | Fechou')]
             'document' => [
                 'required',
                 'string',
+                new ValidBrazilianDocument(),
                 'max:20',
             ],
 
@@ -132,14 +123,18 @@ new #[Title('Primeiros passos | Fechou')]
                 trim($validated['name']),
 
             'document' =>
-                trim($validated['document']),
+                BrazilianInput::document(
+                    $validated['document']
+                ),
 
             'email' =>
                 $business->email
                 ?: $user->email,
 
             'whatsapp' =>
-                trim($validated['whatsapp']),
+                BrazilianInput::phone(
+                    $validated['whatsapp']
+                ),
 
             'pix_key' =>
                 $validated['pixKey']
@@ -398,6 +393,7 @@ new #[Title('Primeiros passos | Fechou')]
                             "
 
                                     data-fechou-mask="document"
+                                    inputmode="text"
                                     maxlength="18"
                                     autocomplete="off"
                                 >

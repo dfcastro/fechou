@@ -3933,7 +3933,9 @@ new #[Title('Proposta | Fechou')]
                                                                     text-zinc-700
                                                                     dark:text-zinc-300
                                                                 ">
-                                            {{ $this->quote->client->document }}
+                                            {{ \App\Support\BrazilianInput::formatDocument(
+                                                $this->quote->client->document
+                                            ) }}
                                         </span>
                                     </p>
 
@@ -3949,7 +3951,9 @@ new #[Title('Proposta | Fechou')]
                                                                     text-zinc-700
                                                                     dark:text-zinc-300
                                                                 ">
-                                            {{ $this->quote->client->whatsapp }}
+                                            {{ \App\Support\BrazilianInput::formatPhone(
+                                                $this->quote->client->whatsapp
+                                            ) }}
                                         </span>
                                     </p>
 
@@ -3962,7 +3966,9 @@ new #[Title('Proposta | Fechou')]
                                                                     text-zinc-700
                                                                     dark:text-zinc-300
                                                                 ">
-                                            {{ $this->quote->client->phone }}
+                                            {{ \App\Support\BrazilianInput::formatPhone(
+                                                $this->quote->client->phone
+                                            ) }}
                                         </span>
                                     </p>
 

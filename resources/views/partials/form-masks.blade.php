@@ -17,21 +17,54 @@
             return result;
         };
 
-        const documentMask = (value) => {
-            let valueDigits = digits(value, 14);
+        const documentCharacters = (value) => {
+            return String(value ?? '')
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, '')
+                .slice(0, 14);
+        };
 
-            if (valueDigits.length <= 11) {
-                return valueDigits
-                    .replace(/^(\d{3})(\d)/, '$1.$2')
-                    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
-                    .replace(/\.(\d{3})(\d)/, '.$1-$2');
+        const documentMask = (value) => {
+            const characters =
+                documentCharacters(value);
+
+            if (
+                /^\d{0,11}$/.test(
+                    characters
+                )
+            ) {
+                return characters
+                    .replace(
+                        /^(\d{3})(\d)/,
+                        '$1.$2'
+                    )
+                    .replace(
+                        /^(\d{3})\.(\d{3})(\d)/,
+                        '$1.$2.$3'
+                    )
+                    .replace(
+                        /\.(\d{3})(\d)/,
+                        '.$1-$2'
+                    );
             }
 
-            return valueDigits
-                .replace(/^(\d{2})(\d)/, '$1.$2')
-                .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-                .replace(/\.(\d{3})(\d)/, '.$1/$2')
-                .replace(/(\d{4})(\d)/, '$1-$2');
+            return characters
+                .replace(
+                    /^([A-Z0-9]{2})([A-Z0-9])/,
+                    '$1.$2'
+                )
+                .replace(
+                    /^([A-Z0-9]{2})\.([A-Z0-9]{3})([A-Z0-9])/,
+                    '$1.$2.$3'
+                )
+                .replace(
+                    /\.([A-Z0-9]{3})([A-Z0-9])/,
+                    '.$1/$2'
+                )
+                .replace(
+                    /([A-Z0-9]{4})([A-Z0-9])/,
+                    '$1-$2'
+                );
         };
 
         const phoneMask = (value) => {

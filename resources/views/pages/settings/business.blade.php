@@ -1,6 +1,7 @@
 <?php
 
 use App\Support\BrazilianInput;
+use App\Rules\ValidBrazilianDocument;
 use App\Enums\PlanFeature;
 use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
@@ -175,32 +176,6 @@ new #[Title('Empresa | Fechou')]
 
     public function save(): void
     {
-        /* FECHOU: NORMALIZAÇÃO DE CAMPOS */
-        $this->document =
-            BrazilianInput::document(
-                $this->document
-            ) ?? '';
-
-        $this->phone =
-            BrazilianInput::phone(
-                $this->phone
-            ) ?? '';
-
-        $this->whatsapp =
-            BrazilianInput::phone(
-                $this->whatsapp
-            ) ?? '';
-
-        $this->postalCode =
-            BrazilianInput::cep(
-                $this->postalCode
-            ) ?? '';
-
-        $this->state =
-            BrazilianInput::state(
-                $this->state
-            ) ?? '';
-
         $business = Auth::user()->business;
 
         abort_unless($business, 403);
@@ -229,6 +204,7 @@ new #[Title('Empresa | Fechou')]
             'document' => [
                 'nullable',
                 'string',
+                new ValidBrazilianDocument(),
                 'max:20',
             ],
 
@@ -326,16 +302,22 @@ new #[Title('Empresa | Fechou')]
                 trim($validated['name']),
 
             'document' =>
-                $validated['document'] ?: null,
+                BrazilianInput::document(
+                    $validated['document']
+                ),
 
             'email' =>
                 $validated['email'] ?: null,
 
             'phone' =>
-                $validated['phone'] ?: null,
+                BrazilianInput::phone(
+                    $validated['phone']
+                ),
 
             'whatsapp' =>
-                $validated['whatsapp'] ?: null,
+                BrazilianInput::phone(
+                    $validated['whatsapp']
+                ),
 
             'address' =>
                 $validated['address'] ?: null,
@@ -344,12 +326,14 @@ new #[Title('Empresa | Fechou')]
                 $validated['city'] ?: null,
 
             'state' =>
-                $validated['state']
-                ? strtoupper($validated['state'])
-                : null,
+                BrazilianInput::state(
+                    $validated['state']
+                ),
 
             'postal_code' =>
-                $validated['postalCode'] ?: null,
+                BrazilianInput::cep(
+                    $validated['postalCode']
+                ),
 
             'pix_key' =>
                 $validated['pixKey'] ?: null,
@@ -827,7 +811,7 @@ new #[Title('Empresa | Fechou')]
                             dark:text-white
                         "
                                     data-fechou-mask="document"
-                                    inputmode="numeric"
+                                    inputmode="text"
                                     maxlength="18"
                                     autocomplete="off"
                                 >

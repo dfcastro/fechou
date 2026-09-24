@@ -1,6 +1,7 @@
 <?php
 
 use App\Support\BrazilianInput;
+use App\Rules\ValidBrazilianDocument;
 use App\Models\Business;
 use App\Models\QuoteTemplate;
 use App\Models\Quote;
@@ -560,17 +561,6 @@ new #[Title('Nova proposta | Fechou')] class extends Component
 
     public function saveNewClient(): void
     {
-        /* FECHOU: NORMALIZAÇÃO DE CAMPOS */
-        $this->newClientDocument =
-            BrazilianInput::document(
-                $this->newClientDocument
-            ) ?? '';
-
-        $this->newClientWhatsapp =
-            BrazilianInput::phone(
-                $this->newClientWhatsapp
-            ) ?? '';
-
 $validated = $this->validate([
             'newClientName' => [
                 'required',
@@ -587,6 +577,7 @@ $validated = $this->validate([
             'newClientDocument' => [
                 'nullable',
                 'string',
+                new ValidBrazilianDocument(),
                 'max:20',
             ],
 
@@ -604,16 +595,30 @@ $validated = $this->validate([
         ]);
 
         /*
+         * A interface mantém documento e telefone mascarados.
+         * O banco recebe a versão normalizada.
+         */
+        $normalizedDocument =
+            BrazilianInput::document(
+                $validated['newClientDocument']
+            );
+
+        $normalizedWhatsapp =
+            BrazilianInput::phone(
+                $validated['newClientWhatsapp']
+            );
+
+        /*
          * Evita cadastro duplicado quando o mesmo CPF/CNPJ
          * já existe para esta empresa.
          */
-        if ($validated['newClientDocument']) {
+        if ($normalizedDocument) {
 
             $existingClient = $this->business
                 ->clients()
                 ->where(
                     'document',
-                    trim($validated['newClientDocument'])
+                    $normalizedDocument
                 )
                 ->first();
 
@@ -635,9 +640,7 @@ $validated = $this->validate([
                 trim($validated['newClientName']),
 
                 'document' =>
-                $validated['newClientDocument']
-                    ? trim($validated['newClientDocument'])
-                    : null,
+                $normalizedDocument,
 
                 'email' =>
                 $validated['newClientEmail']
@@ -645,9 +648,7 @@ $validated = $this->validate([
                     : null,
 
                 'whatsapp' =>
-                $validated['newClientWhatsapp']
-                    ? trim($validated['newClientWhatsapp'])
-                    : null,
+                $normalizedWhatsapp,
 
                 'phone' =>
                 null,
@@ -4025,7 +4026,7 @@ $validated = $this->validate([
                                     dark:text-white
                                 "
                                     data-fechou-mask="document"
-                                    inputmode="numeric"
+                                    inputmode="text"
                                     maxlength="18"
                                     autocomplete="off"
                                 >

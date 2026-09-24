@@ -47,6 +47,67 @@ class FormMasksSourceTest extends TestCase
         );
     }
 
+    public function test_document_validation_and_formatting_supports_alphanumeric_cnpj(): void
+    {
+        $this->assertSame(
+            '00000000E08G12',
+            BrazilianInput::document(
+                '00.000.000/e08g-12'
+            )
+        );
+
+        $this->assertTrue(
+            BrazilianInput::isValidDocument(
+                '529.982.247-25'
+            )
+        );
+
+        $this->assertTrue(
+            BrazilianInput::isValidDocument(
+                '11.222.333/0001-81'
+            )
+        );
+
+        $this->assertTrue(
+            BrazilianInput::isValidDocument(
+                '00.000.000/E08G-12'
+            )
+        );
+
+        $this->assertFalse(
+            BrazilianInput::isValidDocument(
+                '10706.616/6660-0'
+            )
+        );
+
+        $this->assertFalse(
+            BrazilianInput::isValidDocument(
+                '529.982.247-26'
+            )
+        );
+
+        $this->assertSame(
+            '529.982.247-25',
+            BrazilianInput::formatDocument(
+                '52998224725'
+            )
+        );
+
+        $this->assertSame(
+            '00.000.000/E08G-12',
+            BrazilianInput::formatDocument(
+                '00000000E08G12'
+            )
+        );
+
+        $this->assertSame(
+            '(38) 99158-6751',
+            BrazilianInput::formatPhone(
+                '38991586751'
+            )
+        );
+    }
+
     public function test_business_and_client_normalize_contact_fields_on_write(): void
     {
         $business = new Business([

@@ -1,6 +1,7 @@
 <?php
 
 use App\Support\BrazilianInput;
+use App\Rules\ValidBrazilianDocument;
 use App\Models\Client;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -82,38 +83,43 @@ new #[Title('Clientes | Fechou')] class extends Component
 
         $this->editingId = $client->id;
         $this->name = $client->name;
-        $this->document = $client->document ?? '';
-        $this->email = $client->email ?? '';
-        $this->phone = $client->phone ?? '';
-        $this->whatsapp = $client->whatsapp ?? '';
-        $this->notes = $client->notes ?? '';
+
+        $this->document =
+            BrazilianInput::formatDocument(
+                $client->document
+            ) ?? '';
+
+        $this->email =
+            $client->email ?? '';
+
+        $this->phone =
+            BrazilianInput::formatPhone(
+                $client->phone
+            ) ?? '';
+
+        $this->whatsapp =
+            BrazilianInput::formatPhone(
+                $client->whatsapp
+            ) ?? '';
+
+        $this->notes =
+            $client->notes ?? '';
 
         $this->showForm = true;
     }
 
     public function save(): void
     {
-        /* FECHOU: NORMALIZAÇÃO DE CAMPOS */
-        $this->document =
-            BrazilianInput::document(
-                $this->document
-            ) ?? '';
-
-        $this->phone =
-            BrazilianInput::phone(
-                $this->phone
-            ) ?? '';
-
-        $this->whatsapp =
-            BrazilianInput::phone(
-                $this->whatsapp
-            ) ?? '';
-
         abort_unless($this->business, 403);
 
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
-            'document' => ['nullable', 'string', 'max:20'],
+            'document' => [
+                'nullable',
+                'string',
+                new ValidBrazilianDocument(),
+                'max:20',
+            ],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:30'],
             'whatsapp' => ['nullable', 'string', 'max:30'],
@@ -127,6 +133,58 @@ new #[Title('Clientes | Fechou')] class extends Component
             fn($value) => $value === '' ? null : $value,
             $validated
         );
+
+        /*
+         * Mantém a máscara no formulário e normaliza
+         * somente os valores enviados ao banco.
+         */
+        $validated['document'] =
+            BrazilianInput::document(
+                $validated['document']
+            );
+
+        $validated['phone'] =
+            BrazilianInput::phone(
+                $validated['phone']
+            );
+
+        $validated['whatsapp'] =
+            BrazilianInput::phone(
+                $validated['whatsapp']
+            );
+
+        /*
+         * CPF/CNPJ deve ser único dentro da empresa.
+         *
+         * Na edição, o próprio cliente é ignorado para
+         * permitir salvar sem alterar o documento atual.
+         */
+        if ($validated['document']) {
+            $duplicateDocument =
+                $this->business
+                    ->clients()
+                    ->where(
+                        'document',
+                        $validated['document']
+                    )
+                    ->when(
+                        $this->editingId,
+                        fn ($query) =>
+                            $query->whereKeyNot(
+                                $this->editingId
+                            )
+                    )
+                    ->exists();
+
+            if ($duplicateDocument) {
+                $this->addError(
+                    'document',
+                    'Já existe um cliente cadastrado com este CPF/CNPJ.'
+                );
+
+                return;
+            }
+        }
 
         if ($this->editingId) {
             $client = $this->business
@@ -382,10 +440,16 @@ new #[Title('Clientes | Fechou')] class extends Component
                             dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100
                         "
                                     data-fechou-mask="document"
-                                    inputmode="numeric"
+                                    inputmode="text"
                                     maxlength="18"
                                     autocomplete="off"
                                 >
+
+                @error('document')
+                    <p class="mt-1.5 text-sm text-red-600 dark:text-red-400">
+                        {{ $message }}
+                    </p>
+                @enderror
             </div>
 
             <div>
@@ -622,11 +686,16 @@ new #[Title('Clientes | Fechou')] class extends Component
                         </td>
 
                         <td class="px-5 py-4 text-zinc-600 dark:text-zinc-300">
-                            {{ $client->whatsapp ?: ($client->phone ?: '—') }}
+                            {{ BrazilianInput::formatPhone(
+                                $client->whatsapp
+                                ?: $client->phone
+                            ) ?: '—' }}
                         </td>
 
                         <td class="px-5 py-4 text-zinc-600 dark:text-zinc-300">
-                            {{ $client->document ?: '—' }}
+                            {{ BrazilianInput::formatDocument(
+                                $client->document
+                            ) ?: '—' }}
                         </td>
 
                         <td class="px-5 py-4 text-center">

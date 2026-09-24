@@ -43,16 +43,25 @@ class QuickClientNormalizationSourceTest extends TestCase
                 $end - $start
             );
 
-            $this->assertStringContainsString(
-                '$this->newClientDocument',
+            /*
+             * Documento e WhatsApp não devem ser normalizados
+             * antes da validação, pois isso removeria a máscara
+             * visual quando houver erro.
+             */
+            $this->assertStringNotContainsString(
+                'BrazilianInput::document',
                 $prefix
             );
 
-            $this->assertStringContainsString(
-                '$this->newClientWhatsapp',
+            $this->assertStringNotContainsString(
+                'BrazilianInput::phone',
                 $prefix
             );
 
+            /*
+             * As propriedades genéricas de outros formulários
+             * também não podem aparecer neste fluxo.
+             */
             $this->assertStringNotContainsString(
                 '$this->document',
                 $prefix

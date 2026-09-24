@@ -547,7 +547,9 @@
                 <div class="business-details">
 
                     @if ($quote->business->document)
-                        {{ $quote->business->document }}
+                        {{ \App\Support\BrazilianInput::formatDocument(
+                            $quote->business->document
+                        ) }}
                     @endif
 
 
@@ -557,9 +559,10 @@
                                         &nbsp;&bull;&nbsp;
                                     @endif
 
-                                    {{ $quote->business->whatsapp
-                        ?: $quote->business->phone
-                                        }}
+                                    {{ \App\Support\BrazilianInput::formatPhone(
+                                        $quote->business->whatsapp
+                                        ?: $quote->business->phone
+                                    ) }}
 
                     @endif
 
@@ -666,7 +669,9 @@
             @if ($quote->client->document)
 
                 CPF/CNPJ:
-                {{ $quote->client->document }}
+                {{ \App\Support\BrazilianInput::formatDocument(
+                    $quote->client->document
+                ) }}
 
             @endif
 
@@ -680,9 +685,10 @@
                     &nbsp;&bull;&nbsp;
                 @endif
 
-                {{ $quote->client->whatsapp
+                {{ \App\Support\BrazilianInput::formatPhone(
+                    $quote->client->whatsapp
                     ?: $quote->client->phone
-                        }}
+                ) }}
 
             @endif
 
