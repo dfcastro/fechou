@@ -1094,7 +1094,11 @@ new #[Title('Plano e assinatura | Fechou')]
                                 uppercase tracking-wide
                                 text-zinc-400
                             ">
-                        Próximo ciclo
+                        {{
+                            $this->isCanceling
+                                ? 'Fim do acesso Pro'
+                                : 'Próximo ciclo'
+                        }}
                     </p>
 
                     <p class="
@@ -1103,7 +1107,13 @@ new #[Title('Plano e assinatura | Fechou')]
                                 text-zinc-700
                                 dark:text-zinc-200
                             ">
-                        {{ $this->nextCycleDate() }}
+                        {{
+                            $this->isCanceling
+                                ? $this->formatDate(
+                                    $this->subscription?->ends_at
+                                )
+                                : $this->nextCycleDate()
+                        }}
                     </p>
 
                 </div>
