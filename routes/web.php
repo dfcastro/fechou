@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AsaasCheckoutController;
+use App\Http\Controllers\AsaasSubscriptionController;
 use App\Http\Controllers\AsaasWebhookController;
 use App\Http\Controllers\QuotePdfController;
 use Illuminate\Support\Facades\Route;
@@ -118,6 +119,13 @@ Route::middleware(['auth'])
         )
             ->middleware('verified')
             ->name('settings.subscription.checkout.asaas');
+
+        Route::delete(
+            'configuracoes/plano/assinatura/asaas',
+            [AsaasSubscriptionController::class, 'destroy']
+        )
+            ->middleware('verified')
+            ->name('settings.subscription.cancel.asaas');
 
         Route::livewire(
             'configuracoes/follow-up',

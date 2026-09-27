@@ -1665,6 +1665,182 @@ new #[Title('Plano e assinatura | Fechou')]
                                 Seu plano atual
                             </div>
 
+                            @if (
+                                !$this->isCanceling
+                                && $this->subscription
+                                    ?->payment_provider === 'asaas'
+                                && $this->subscription
+                                    ?->provider_subscription_id
+                            )
+
+                                <div
+                                    x-data="{ cancelOpen: false }"
+                                    class="mt-3"
+                                >
+
+                                    <button
+                                        type="button"
+                                        x-on:click="cancelOpen = true"
+                                        class="
+                                            inline-flex w-full
+                                            items-center justify-center
+                                            rounded-lg
+                                            px-4 py-2
+                                            text-xs font-semibold
+                                            text-zinc-500
+                                            transition
+                                            hover:bg-red-50
+                                            hover:text-red-700
+
+                                            dark:text-zinc-400
+                                            dark:hover:bg-red-500/10
+                                            dark:hover:text-red-300
+                                        "
+                                    >
+                                        Cancelar assinatura
+                                    </button>
+
+                                    <div
+                                        x-cloak
+                                        x-show="cancelOpen"
+                                        x-on:keydown.escape.window="
+                                            cancelOpen = false
+                                        "
+                                        x-on:click.self="
+                                            cancelOpen = false
+                                        "
+                                        class="
+                                            fixed inset-0 z-50
+                                            flex items-center justify-center
+                                            bg-zinc-950/60
+                                            p-4
+                                        "
+                                    >
+
+                                        <div
+                                            x-show="cancelOpen"
+                                            x-transition
+                                            class="
+                                                w-full max-w-md
+                                                rounded-2xl
+                                                border border-zinc-200
+                                                bg-white
+                                                p-6
+                                                shadow-2xl
+
+                                                dark:border-zinc-800
+                                                dark:bg-zinc-900
+                                            "
+                                        >
+
+                                            <div class="
+                                                flex size-10
+                                                items-center justify-center
+                                                rounded-xl
+                                                bg-red-50
+                                                text-red-600
+
+                                                dark:bg-red-500/10
+                                                dark:text-red-400
+                                            ">
+                                                <flux:icon.exclamation-triangle
+                                                    class="size-5"
+                                                />
+                                            </div>
+
+                                            <h3 class="
+                                                mt-4 text-lg font-semibold
+                                                text-zinc-950
+                                                dark:text-white
+                                            ">
+                                                Cancelar Fechou Pro?
+                                            </h3>
+
+                                            <p class="
+                                                mt-2
+                                                text-sm leading-6
+                                                text-zinc-500
+                                                dark:text-zinc-400
+                                            ">
+                                                A renovação automática será
+                                                encerrada. Você continuará com
+                                                os recursos Pro até
+                                                <strong class="
+                                                    text-zinc-700
+                                                    dark:text-zinc-200
+                                                ">
+                                                    {{
+                                                        $this->formatDate(
+                                                            $this->subscription
+                                                                ?->current_period_ends_at
+                                                        )
+                                                    }}
+                                                </strong>.
+                                            </p>
+
+                                            <div class="
+                                                mt-6
+                                                flex flex-col-reverse gap-2
+                                                sm:flex-row
+                                                sm:justify-end
+                                            ">
+
+                                                <button
+                                                    type="button"
+                                                    x-on:click="
+                                                        cancelOpen = false
+                                                    "
+                                                    class="
+                                                        rounded-lg
+                                                        border border-zinc-200
+                                                        px-4 py-2.5
+                                                        text-sm font-semibold
+                                                        text-zinc-700
+
+                                                        dark:border-zinc-700
+                                                        dark:text-zinc-200
+                                                    "
+                                                >
+                                                    Manter assinatura
+                                                </button>
+
+                                                <form
+                                                    method="POST"
+                                                    action="{{
+                                                        route(
+                                                            'settings.subscription.cancel.asaas'
+                                                        )
+                                                    }}"
+                                                >
+                                                    @csrf
+                                                    @method('DELETE')
+
+                                                    <button
+                                                        type="submit"
+                                                        class="
+                                                            w-full
+                                                            rounded-lg
+                                                            bg-red-600
+                                                            px-4 py-2.5
+                                                            text-sm font-semibold
+                                                            text-white
+                                                            hover:bg-red-700
+                                                        "
+                                                    >
+                                                        Confirmar cancelamento
+                                                    </button>
+                                                </form>
+
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            @endif
+
                         @else
 
                             <form method="POST" action="{{ route('settings.subscription.checkout.asaas') }}">

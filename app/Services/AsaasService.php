@@ -419,6 +419,35 @@ class AsaasService
         );
     }
 
+    public function cancelSubscription(
+        Subscription $subscription
+    ): void {
+        $providerSubscriptionId = trim(
+            (string) $subscription
+                ->provider_subscription_id
+        );
+
+        if (
+            $subscription->payment_provider !== 'asaas'
+            || $providerSubscriptionId === ''
+        ) {
+            throw new RuntimeException(
+                'Não foi possível localizar a assinatura no Asaas.'
+            );
+        }
+
+        $response = $this->request()
+            ->delete(
+                $this->baseUrl()
+                . '/subscriptions/'
+                . urlencode(
+                    $providerSubscriptionId
+                )
+            );
+
+        $response->throw();
+    }
+
     private function request(): PendingRequest
     {
         $apiKey = config(
