@@ -337,6 +337,160 @@ class AsaasPaymentWebhookTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_subscription_deleted_after_overdue_keeps_paid_period_and_does_not_use_next_due_date(): void
+    {
+        Carbon::setTestNow(
+            '2026-09-27 20:11:00'
+        );
+
+        [
+            ,
+            $business,
+            $subscription,
+        ] = $this->createAccount();
+
+        $periodEnd = Carbon::parse(
+            '2026-10-25 00:34:58'
+        );
+
+        $subscription->update([
+            'current_period_starts_at' =>
+                Carbon::parse(
+                    '2026-09-25 00:34:59'
+                ),
+
+            'current_period_ends_at' =>
+                $periodEnd,
+        ]);
+
+        /*
+         * Sequência observada no E2E real:
+         *
+         * PAYMENT_OVERDUE chega antes do evento
+         * de cancelamento da assinatura.
+         */
+        $this
+            ->postPayment(
+                'PAYMENT_OVERDUE',
+                [
+                    'status' =>
+                        'OVERDUE',
+
+                    'dueDate' =>
+                        '2026-09-25',
+                ]
+            )
+            ->assertOk();
+
+        $subscription->refresh();
+
+        $this->assertSame(
+            'past_due',
+            $subscription->status
+        );
+
+        $this->assertSame(
+            'overdue',
+            $subscription->billing_status
+        );
+
+        /*
+         * O Asaas pode enviar um nextDueDate futuro mesmo
+         * no SUBSCRIPTION_DELETED.
+         *
+         * Esse valor não pode ampliar o período adquirido.
+         */
+        $this
+            ->postJson(
+                route('webhooks.asaas'),
+                [
+                    'id' =>
+                        'evt_subscription_deleted_after_overdue',
+
+                    'event' =>
+                        'SUBSCRIPTION_DELETED',
+
+                    'subscription' => [
+                        'id' =>
+                            'sub_test_123',
+
+                        'customer' =>
+                            'cus_test_123',
+
+                        'status' =>
+                            'INACTIVE',
+
+                        'deleted' =>
+                            true,
+
+                        'nextDueDate' =>
+                            '2026-11-25',
+                    ],
+                ],
+                [
+                    'asaas-access-token' =>
+                        $this->token,
+                ]
+            )
+            ->assertOk();
+
+        $subscription->refresh();
+
+        $this->assertSame(
+            'active',
+            $subscription->status
+        );
+
+        $this->assertSame(
+            'canceling',
+            $subscription->billing_status
+        );
+
+        $this->assertNotNull(
+            $subscription->canceled_at
+        );
+
+        $this->assertTrue(
+            $subscription
+                ->ends_at
+                ->equalTo(
+                    $periodEnd
+                )
+        );
+
+        $this->assertTrue(
+            $subscription
+                ->current_period_ends_at
+                ->equalTo(
+                    $periodEnd
+                )
+        );
+
+        $this->assertNull(
+            $subscription->past_due_at
+        );
+
+        $this->assertNull(
+            $subscription->grace_ends_at
+        );
+
+        $this->assertNull(
+            $subscription
+                ->access_suspended_at
+        );
+
+        $this->assertTrue(
+            app(
+                SubscriptionService::class
+            )->hasFeature(
+                $business,
+                PlanFeature::FOLLOW_UP
+            )
+        );
+
+        Carbon::setTestNow();
+    }
+
     public function test_refund_blocks_pro_immediately_but_keeps_data(): void
     {
         [

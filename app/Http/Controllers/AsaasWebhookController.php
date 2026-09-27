@@ -380,13 +380,32 @@ class AsaasWebhookController extends Controller
                     ->provider_customer_id,
         ];
 
+        $cancellationEvents = [
+            'SUBSCRIPTION_INACTIVATED',
+            'SUBSCRIPTION_DELETED',
+        ];
+
+        $isCancellationEvent = in_array(
+            $eventType,
+            $cancellationEvents,
+            true
+        );
+
         $nextDueDate = data_get(
             $payload,
             'subscription.nextDueDate'
         );
 
+        /*
+         * nextDueDate representa a próxima cobrança planejada
+         * pelo gateway.
+         *
+         * Em eventos de cancelamento/inativação ela não deve
+         * estender o período já adquirido no Fechou.
+         */
         if (
-            is_string($nextDueDate)
+            !$isCancellationEvent
+            && is_string($nextDueDate)
             && $nextDueDate !== ''
         ) {
             $nextDue = Carbon::parse(
@@ -404,27 +423,32 @@ class AsaasWebhookController extends Controller
          * A inativação/remoção no gateway representa cancelamento
          * da recorrência futura.
          *
-         * Se já existe período pago vigente, mantemos o acesso até
-         * current_period_ends_at e o comando agendado finaliza depois.
+         * Se existe período vigente e o acesso ainda não estava
+         * suspenso, mantemos o Pro até o término já registrado.
+         *
+         * Também limpamos um eventual overdue em tolerância:
+         * cancelar a renovação não deve retirar antes da hora
+         * um período que já estava disponível.
          */
-        if (
-            in_array(
-                $eventType,
-                [
-                    'SUBSCRIPTION_INACTIVATED',
-                    'SUBSCRIPTION_DELETED',
-                ],
-                true
-            )
-        ) {
+        if ($isCancellationEvent) {
             $periodEnd =
                 $subscription
                     ->current_period_ends_at;
 
-            if (
+            $canKeepAccess =
                 $periodEnd
                 && $periodEnd->isFuture()
-            ) {
+                && $subscription
+                    ->access_suspended_at === null
+                && (
+                    $subscription->status === 'active'
+                    || $subscription->isInGracePeriod()
+                );
+
+            if ($canKeepAccess) {
+                $updates['status'] =
+                    'active';
+
                 $updates['billing_status'] =
                     'canceling';
 
@@ -433,6 +457,16 @@ class AsaasWebhookController extends Controller
 
                 $updates['ends_at'] =
                     $periodEnd;
+
+                $updates['past_due_at'] =
+                    null;
+
+                $updates['grace_ends_at'] =
+                    null;
+
+                $updates[
+                    'access_suspended_at'
+                ] = null;
             } else {
                 $updates['status'] =
                     'canceled';
