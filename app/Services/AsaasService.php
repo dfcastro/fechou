@@ -128,9 +128,71 @@ class AsaasService
         Business $business,
         Subscription $subscription
     ): string {
+        /*
+         * Quando usamos `customer` no Checkout,
+         * o Asaas utiliza os dados já armazenados
+         * no cadastro desse cliente.
+         */
+        $address = trim(
+            (string) $business->address
+        );
+
+        if ($address === '') {
+            throw new RuntimeException(
+                'Informe o endereço em Configurações > Empresa antes de assinar o Fechou Pro.'
+            );
+        }
+
+        $addressNumber = trim(
+            (string) $business->address_number
+        );
+
+        if ($addressNumber === '') {
+            throw new RuntimeException(
+                'Informe o número do endereço em Configurações > Empresa antes de assinar o Fechou Pro.'
+            );
+        }
+
+        $province = trim(
+            (string) $business->province
+        );
+
+        if ($province === '') {
+            throw new RuntimeException(
+                'Informe o bairro em Configurações > Empresa antes de assinar o Fechou Pro.'
+            );
+        }
+
+        $addressComplement = trim(
+            (string) $business->address_complement
+        );
+
+        $postalCode = preg_replace(
+            '/\\D+/',
+            '',
+            (string) $business->postal_code
+        );
+
+        if (strlen($postalCode) !== 8) {
+            throw new RuntimeException(
+                'Informe um CEP válido em Configurações > Empresa antes de assinar o Fechou Pro.'
+            );
+        }
+
         if ($subscription->provider_customer_id) {
-            return $subscription
-                ->provider_customer_id;
+            $customerId =
+                $subscription->provider_customer_id;
+
+            $this->syncCustomerAddress(
+                $customerId,
+                $address,
+                $addressNumber,
+                $addressComplement,
+                $province,
+                $postalCode
+            );
+
+            return $customerId;
         }
 
         $externalReference =
@@ -165,6 +227,15 @@ class AsaasService
             is_string($existingCustomerId)
             && $existingCustomerId !== ''
         ) {
+            $this->syncCustomerAddress(
+                $existingCustomerId,
+                $address,
+                $addressNumber,
+                $addressComplement,
+                $province,
+                $postalCode
+            );
+
             $subscription->update([
                 'payment_provider' =>
                     'asaas',
@@ -208,9 +279,26 @@ class AsaasService
             'cpfCnpj' =>
                 $document,
 
+            'address' =>
+                $address,
+
+            'addressNumber' =>
+                $addressNumber,
+
+            'province' =>
+                $province,
+
             'externalReference' =>
                 $externalReference,
         ];
+
+        $customerPayload['postalCode'] =
+            $postalCode;
+
+        if ($addressComplement !== '') {
+            $customerPayload['complement'] =
+                $addressComplement;
+        }
 
         if (
             $business->email
@@ -241,13 +329,6 @@ class AsaasService
             ] = $mobilePhone;
         }
 
-        /*
-         * Endereço não é enviado aqui.
-         *
-         * O Fechou ainda não possui todos os campos de
-         * faturamento (número/bairro etc.). O Checkout do
-         * Asaas poderá solicitar os dados faltantes.
-         */
         $createResponse = $this->request()
             ->post(
                 $this->baseUrl()
@@ -280,6 +361,44 @@ class AsaasService
         ]);
 
         return $customerId;
+    }
+
+    private function syncCustomerAddress(
+        string $customerId,
+        string $address,
+        string $addressNumber,
+        string $addressComplement,
+        string $province,
+        string $postalCode
+    ): void {
+        $payload = [
+            'address' =>
+                $address,
+
+            'addressNumber' =>
+                $addressNumber,
+
+            'province' =>
+                $province,
+
+            'postalCode' =>
+                $postalCode,
+        ];
+
+        if ($addressComplement !== '') {
+            $payload['complement'] =
+                $addressComplement;
+        }
+
+        $response = $this->request()
+            ->put(
+                $this->baseUrl()
+                . '/customers/'
+                . urlencode($customerId),
+                $payload
+            );
+
+        $response->throw();
     }
 
     public function checkoutLink(

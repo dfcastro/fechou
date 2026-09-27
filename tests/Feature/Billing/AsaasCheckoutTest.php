@@ -28,6 +28,10 @@ class AsaasCheckoutTest extends TestCase
             'document' => '24971563792',
             'email' => 'financeiro@example.com',
             'whatsapp' => '(33) 99999-9999',
+            'address' => 'Rua Teste',
+            'address_number' => '123',
+            'address_complement' => 'Sala 2',
+            'province' => 'Centro',
             'postal_code' => '39900-000',
         ]);
 
@@ -234,7 +238,32 @@ class AsaasCheckoutTest extends TestCase
                         'externalReference'
                     ) ===
                         'fechou-business-'
-                        . $business->id;
+                        . $business->id
+
+                    && data_get(
+                        $data,
+                        'address'
+                    ) === 'Rua Teste'
+
+                    && data_get(
+                        $data,
+                        'addressNumber'
+                    ) === '123'
+
+                    && data_get(
+                        $data,
+                        'complement'
+                    ) === 'Sala 2'
+
+                    && data_get(
+                        $data,
+                        'province'
+                    ) === 'Centro'
+
+                    && data_get(
+                        $data,
+                        'postalCode'
+                    ) === '39900000';
             }
         );
 
@@ -315,6 +344,27 @@ class AsaasCheckoutTest extends TestCase
         ]);
 
         Http::fake([
+            'https://api-sandbox.asaas.com/v3/customers/cus_existing_123' =>
+                Http::response([
+                    'id' =>
+                        'cus_existing_123',
+
+                    'address' =>
+                        'Rua Teste',
+
+                    'addressNumber' =>
+                        '123',
+
+                    'complement' =>
+                        'Sala 2',
+
+                    'province' =>
+                        'Centro',
+
+                    'postalCode' =>
+                        '39900000',
+                ]),
+
             'https://api-sandbox.asaas.com/v3/checkouts' =>
                 Http::response([
                     'id' =>
@@ -339,15 +389,93 @@ class AsaasCheckoutTest extends TestCase
                 'https://sandbox.asaas.com/checkoutSession/show/checkout_existing_customer'
             );
 
-        Http::assertSentCount(1);
+        Http::assertSentCount(2);
+
+        Http::assertSent(
+            function (Request $request): bool {
+                if (
+                    $request->method() !== 'PUT'
+                    || $request->url()
+                    !== 'https://api-sandbox.asaas.com/v3/customers/cus_existing_123'
+                ) {
+                    return false;
+                }
+
+                return
+                    data_get(
+                        $request->data(),
+                        'address'
+                    ) === 'Rua Teste'
+
+                    && data_get(
+                        $request->data(),
+                        'addressNumber'
+                    ) === '123'
+
+                    && data_get(
+                        $request->data(),
+                        'complement'
+                    ) === 'Sala 2'
+
+                    && data_get(
+                        $request->data(),
+                        'province'
+                    ) === 'Centro'
+
+                    && data_get(
+                        $request->data(),
+                        'postalCode'
+                    ) === '39900000';
+            }
+        );
 
         Http::assertSent(
             fn(Request $request): bool =>
-                data_get(
+                $request->method() === 'POST'
+
+                && $request->url()
+                === 'https://api-sandbox.asaas.com/v3/checkouts'
+
+                && data_get(
                     $request->data(),
                     'customer'
                 ) === 'cus_existing_123'
         );
+    }
+
+    public function test_checkout_requires_address_number_before_calling_asaas(): void
+    {
+        [
+            $user,
+            $business,
+            ,
+        ] = $this->createFreeAccount();
+
+        $business->update([
+            'address_number' => null,
+        ]);
+
+        Http::fake();
+
+        $this
+            ->actingAs($user)
+            ->from(
+                route('settings.subscription')
+            )
+            ->post(
+                route(
+                    'settings.subscription.checkout.asaas'
+                )
+            )
+            ->assertRedirect(
+                route('settings.subscription')
+            )
+            ->assertSessionHas(
+                'billing_error',
+                'Informe o número do endereço em Configurações > Empresa antes de assinar o Fechou Pro.'
+            );
+
+        Http::assertNothingSent();
     }
 
     public function test_active_pro_user_does_not_create_another_checkout(): void

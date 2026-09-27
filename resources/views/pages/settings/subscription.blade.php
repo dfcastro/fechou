@@ -391,7 +391,7 @@ new #[Title('Plano e assinatura | Fechou')]
 
         return $date
             ->copy()
-            ->addDay()
+            ->addSecond()
             ->format('d/m/Y');
     }
 };

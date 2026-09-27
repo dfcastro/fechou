@@ -22,6 +22,9 @@ new #[Title('Empresa | Fechou')]
     public string $whatsapp = '';
 
     public string $address = '';
+    public string $addressNumber = '';
+    public string $addressComplement = '';
+    public string $province = '';
     public string $city = '';
     public string $state = '';
     public string $postalCode = '';
@@ -91,6 +94,12 @@ new #[Title('Empresa | Fechou')]
         $this->whatsapp = $business->whatsapp ?? '';
 
         $this->address = $business->address ?? '';
+        $this->addressNumber =
+            $business->address_number ?? '';
+        $this->addressComplement =
+            $business->address_complement ?? '';
+        $this->province =
+            $business->province ?? '';
         $this->city = $business->city ?? '';
         $this->state = $business->state ?? '';
         $this->postalCode = $business->postal_code ?? '';
@@ -232,6 +241,24 @@ new #[Title('Empresa | Fechou')]
                 'max:255',
             ],
 
+            'addressNumber' => [
+                'nullable',
+                'string',
+                'max:20',
+            ],
+
+            'addressComplement' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'province' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
             'city' => [
                 'nullable',
                 'string',
@@ -321,6 +348,15 @@ new #[Title('Empresa | Fechou')]
 
             'address' =>
                 $validated['address'] ?: null,
+
+            'address_number' =>
+                $validated['addressNumber'] ?: null,
+
+            'address_complement' =>
+                $validated['addressComplement'] ?: null,
+
+            'province' =>
+                $validated['province'] ?: null,
 
             'city' =>
                 $validated['city'] ?: null,
@@ -919,13 +955,17 @@ new #[Title('Empresa | Fechou')]
 
             <div class="grid gap-4 p-5 md:grid-cols-6">
 
-                <div class="md:col-span-6">
+                <div class="md:col-span-4">
 
                     <label class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                        Endereço
+                        Logradouro
                     </label>
 
-                    <input type="text" wire:model="address" class="
+                    <input
+                        type="text"
+                        wire:model="address"
+                        autocomplete="street-address"
+                        class="
                             w-full rounded-lg
                             border border-zinc-300
                             bg-white
@@ -935,7 +975,84 @@ new #[Title('Empresa | Fechou')]
                             dark:border-zinc-700
                             dark:bg-zinc-950
                             dark:text-white
-                        ">
+                        "
+                    >
+
+                </div>
+
+
+                <div class="md:col-span-2">
+
+                    <label class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        Número
+                    </label>
+
+                    <input
+                        type="text"
+                        wire:model="addressNumber"
+                        maxlength="20"
+                        class="
+                            w-full rounded-lg
+                            border border-zinc-300
+                            bg-white
+                            px-3 py-2.5
+                            text-sm text-zinc-900
+
+                            dark:border-zinc-700
+                            dark:bg-zinc-950
+                            dark:text-white
+                        "
+                    >
+
+                </div>
+
+
+                <div class="md:col-span-3">
+
+                    <label class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        Complemento
+                    </label>
+
+                    <input
+                        type="text"
+                        wire:model="addressComplement"
+                        class="
+                            w-full rounded-lg
+                            border border-zinc-300
+                            bg-white
+                            px-3 py-2.5
+                            text-sm text-zinc-900
+
+                            dark:border-zinc-700
+                            dark:bg-zinc-950
+                            dark:text-white
+                        "
+                    >
+
+                </div>
+
+
+                <div class="md:col-span-3">
+
+                    <label class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        Bairro
+                    </label>
+
+                    <input
+                        type="text"
+                        wire:model="province"
+                        class="
+                            w-full rounded-lg
+                            border border-zinc-300
+                            bg-white
+                            px-3 py-2.5
+                            text-sm text-zinc-900
+
+                            dark:border-zinc-700
+                            dark:bg-zinc-950
+                            dark:text-white
+                        "
+                    >
 
                 </div>
 
@@ -946,7 +1063,11 @@ new #[Title('Empresa | Fechou')]
                         Cidade
                     </label>
 
-                    <input type="text" wire:model="city" class="
+                    <input
+                        type="text"
+                        wire:model="city"
+                        autocomplete="address-level2"
+                        class="
                             w-full rounded-lg
                             border border-zinc-300
                             bg-white
@@ -956,7 +1077,8 @@ new #[Title('Empresa | Fechou')]
                             dark:border-zinc-700
                             dark:bg-zinc-950
                             dark:text-white
-                        ">
+                        "
+                    >
 
                 </div>
 
@@ -967,7 +1089,14 @@ new #[Title('Empresa | Fechou')]
                         UF
                     </label>
 
-                    <input type="text" wire:model="state" maxlength="2" class="
+                    <input
+                        type="text"
+                        wire:model="state"
+                        maxlength="2"
+                        autocomplete="address-level1"
+                        data-fechou-mask="uf"
+                        autocapitalize="characters"
+                        class="
                             w-full rounded-lg
                             border border-zinc-300
                             bg-white
@@ -978,9 +1107,7 @@ new #[Title('Empresa | Fechou')]
                             dark:bg-zinc-950
                             dark:text-white
                         "
-                                    data-fechou-mask="uf"
-                                    autocapitalize="characters"
-                                >
+                    >
 
                 </div>
 
@@ -991,7 +1118,14 @@ new #[Title('Empresa | Fechou')]
                         CEP
                     </label>
 
-                    <input type="text" wire:model="postalCode" class="
+                    <input
+                        type="text"
+                        wire:model="postalCode"
+                        data-fechou-mask="cep"
+                        inputmode="numeric"
+                        maxlength="9"
+                        autocomplete="postal-code"
+                        class="
                             w-full rounded-lg
                             border border-zinc-300
                             bg-white
@@ -1002,11 +1136,7 @@ new #[Title('Empresa | Fechou')]
                             dark:bg-zinc-950
                             dark:text-white
                         "
-                                    data-fechou-mask="cep"
-                                    inputmode="numeric"
-                                    maxlength="9"
-                                    autocomplete="postal-code"
-                                >
+                    >
 
                 </div>
 
