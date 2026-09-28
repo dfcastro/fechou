@@ -105,6 +105,35 @@ new #[Title('Plano e assinatura | Fechou')]
     }
 
     #[Computed]
+    public function hasBillingAddress(): bool
+    {
+        if (!$this->business) {
+            return false;
+        }
+
+        $postalCode = preg_replace(
+            '/\\D+/',
+            '',
+            (string) $this->business->postal_code
+        );
+
+        return
+            trim(
+                (string) $this->business->address
+            ) !== ''
+
+            && trim(
+                (string) $this->business->address_number
+            ) !== ''
+
+            && trim(
+                (string) $this->business->province
+            ) !== ''
+
+            && strlen($postalCode) === 8;
+    }
+
+    #[Computed]
     public function isPro(): bool
     {
         return $this->subscription?->plan?->slug === 'pro';
@@ -1301,32 +1330,45 @@ new #[Title('Plano e assinatura | Fechou')]
 
                         </div>
 
-                        <button
-                            type="button"
-                            x-on:click="
-                                subscribeOpen = true
-                            "
-                            class="
-                                mt-5
-                                inline-flex w-full
-                                items-center justify-center
-                                gap-2
-                                rounded-lg
-                                bg-violet-600
-                                px-4 py-2.5
-                                text-sm font-semibold
-                                text-white
-                                shadow-sm
-                                transition
-                                hover:bg-violet-700
-
-                                dark:bg-violet-500
-                                dark:text-zinc-950
-                                dark:hover:bg-violet-400
-                            "
+                        <form
+                            method="POST"
+                            action="{{
+                                route(
+                                    'settings.subscription.checkout.asaas'
+                                )
+                            }}"
+                            class="mt-5"
                         >
-                            Assinar Fechou Pro
-                        </button>
+                            @csrf
+
+                            <button
+                                type="submit"
+                                @if (!$this->hasBillingAddress)
+                                    x-on:click.prevent="
+                                        subscribeOpen = true
+                                    "
+                                @endif
+                                class="
+                                    inline-flex w-full
+                                    items-center justify-center
+                                    gap-2
+                                    rounded-lg
+                                    bg-violet-600
+                                    px-4 py-2.5
+                                    text-sm font-semibold
+                                    text-white
+                                    shadow-sm
+                                    transition
+                                    hover:bg-violet-700
+
+                                    dark:bg-violet-500
+                                    dark:text-zinc-950
+                                    dark:hover:bg-violet-400
+                                "
+                            >
+                                Assinar Fechou Pro
+                            </button>
+                        </form>
 
                         <p class="
                                         mt-2
@@ -1861,31 +1903,44 @@ new #[Title('Plano e assinatura | Fechou')]
 
                         @else
 
-                            <button
-                                type="button"
-                                x-on:click="
-                                    subscribeOpen = true
-                                "
-                                class="
-                                    inline-flex w-full
-                                    items-center justify-center
-                                    gap-2
-                                    rounded-lg
-                                    bg-violet-600
-                                    px-4 py-2.5
-                                    text-sm font-semibold
-                                    text-white
-                                    shadow-sm
-                                    transition
-                                    hover:bg-violet-700
-
-                                    dark:bg-violet-500
-                                    dark:text-zinc-950
-                                    dark:hover:bg-violet-400
-                                "
+                            <form
+                                method="POST"
+                                action="{{
+                                    route(
+                                        'settings.subscription.checkout.asaas'
+                                    )
+                                }}"
                             >
-                                Assinar Fechou Pro
-                            </button>
+                                @csrf
+
+                                <button
+                                    type="submit"
+                                    @if (!$this->hasBillingAddress)
+                                        x-on:click.prevent="
+                                            subscribeOpen = true
+                                        "
+                                    @endif
+                                    class="
+                                        inline-flex w-full
+                                        items-center justify-center
+                                        gap-2
+                                        rounded-lg
+                                        bg-violet-600
+                                        px-4 py-2.5
+                                        text-sm font-semibold
+                                        text-white
+                                        shadow-sm
+                                        transition
+                                        hover:bg-violet-700
+
+                                        dark:bg-violet-500
+                                        dark:text-zinc-950
+                                        dark:hover:bg-violet-400
+                                    "
+                                >
+                                    Assinar Fechou Pro
+                                </button>
+                            </form>
 
                         @endif
 
