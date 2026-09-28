@@ -12,7 +12,7 @@
     />
 
     <path
-        d="M13 10.5H28V15H18V19H27V23.5H18V30H13V10.5Z"
+        d="M11 10H16L24 22V10H29V30H24L16 18V30H11V10Z"
         fill="white"
     />
 </svg>

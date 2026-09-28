@@ -30,9 +30,7 @@
         <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-6 lg:px-8">
 
             <a href="{{ route('home') }}" class="flex items-center gap-2.5">
-                <span class="flex size-9 items-center justify-center rounded-xl bg-emerald-500 text-sm font-black text-white shadow-sm shadow-emerald-500/20">
-                    F
-                </span>
+                <x-app-logo-icon class="size-9 shrink-0 shadow-sm shadow-emerald-500/20" />
 
                 <span class="text-lg font-bold tracking-tight">
                     Negozia
@@ -461,9 +459,7 @@
     <footer class="border-t border-zinc-200 dark:border-zinc-800">
         <div class="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-8 text-sm text-zinc-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8 dark:text-zinc-400">
             <div class="flex items-center gap-2">
-                <span class="flex size-7 items-center justify-center rounded-lg bg-emerald-500 text-xs font-black text-white">
-                    F
-                </span>
+                <x-app-logo-icon class="size-7 shrink-0" />
                 <span class="font-semibold text-zinc-700 dark:text-zinc-200">Negozia</span>
             </div>
 
