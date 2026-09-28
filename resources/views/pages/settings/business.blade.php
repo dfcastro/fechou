@@ -2,6 +2,7 @@
 
 use App\Support\BrazilianInput;
 use App\Rules\ValidBrazilianDocument;
+use App\Rules\UniqueBusinessDocument;
 use App\Enums\PlanFeature;
 use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
@@ -211,9 +212,13 @@ new #[Title('Empresa | Fechou')]
             ],
 
             'document' => [
+                'bail',
                 'nullable',
                 'string',
                 new ValidBrazilianDocument(),
+                new UniqueBusinessDocument(
+                    $business->id
+                ),
                 'max:20',
             ],
 
@@ -851,6 +856,12 @@ new #[Title('Empresa | Fechou')]
                                     maxlength="18"
                                     autocomplete="off"
                                 >
+
+                    @error('document')
+                        <p class="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {{ $message }}
+                        </p>
+                    @enderror
 
                 </div>
 

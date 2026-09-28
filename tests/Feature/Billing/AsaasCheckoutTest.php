@@ -514,4 +514,263 @@ class AsaasCheckoutTest extends TestCase
 
         Http::assertNothingSent();
     }
+
+    public function test_subscription_page_shows_billing_address_modal(): void
+    {
+        [
+            $user,
+        ] = $this->createFreeAccount();
+
+        $this
+            ->actingAs($user)
+            ->get(
+                route(
+                    'settings.subscription'
+                )
+            )
+            ->assertOk()
+            ->assertSee(
+                'Complete os dados para pagamento'
+            )
+            ->assertSee(
+                'Continuar para pagamento'
+            )
+            ->assertSee(
+                'name="billing_postal_code"',
+                false
+            )
+            ->assertSee(
+                'name="billing_address"',
+                false
+            )
+            ->assertSee(
+                'name="billing_address_number"',
+                false
+            )
+            ->assertSee(
+                'name="billing_province"',
+                false
+            );
+    }
+
+    public function test_checkout_modal_saves_billing_address_before_calling_asaas(): void
+    {
+        [
+            $user,
+            $business,
+        ] = $this->createFreeAccount();
+
+        $business->update([
+            'address' =>
+                null,
+
+            'address_number' =>
+                null,
+
+            'address_complement' =>
+                null,
+
+            'province' =>
+                null,
+
+            'postal_code' =>
+                null,
+        ]);
+
+        Http::fake(
+            function (Request $request) {
+                if (
+                    $request->method() === 'GET'
+                    && str_starts_with(
+                        $request->url(),
+                        'https://api-sandbox.asaas.com/v3/customers'
+                    )
+                ) {
+                    return Http::response([
+                        'data' => [],
+                    ]);
+                }
+
+                if (
+                    $request->method() === 'POST'
+                    && $request->url()
+                    === 'https://api-sandbox.asaas.com/v3/customers'
+                ) {
+                    return Http::response([
+                        'id' =>
+                            'cus_address_modal',
+                    ]);
+                }
+
+                if (
+                    $request->method() === 'POST'
+                    && $request->url()
+                    === 'https://api-sandbox.asaas.com/v3/checkouts'
+                ) {
+                    return Http::response([
+                        'id' =>
+                            'checkout_address_modal',
+
+                        'link' =>
+                            'https://sandbox.asaas.com/checkoutSession/show/checkout_address_modal',
+
+                        'status' =>
+                            'ACTIVE',
+                    ]);
+                }
+
+                return Http::response(
+                    [],
+                    404
+                );
+            }
+        );
+
+        $this
+            ->actingAs($user)
+            ->post(
+                route(
+                    'settings.subscription.checkout.asaas'
+                ),
+                [
+                    'billing_address_submit' =>
+                        '1',
+
+                    'billing_postal_code' =>
+                        '39900-000',
+
+                    'billing_address' =>
+                        'Avenida Teste',
+
+                    'billing_address_number' =>
+                        '456',
+
+                    'billing_address_complement' =>
+                        'Sala 9',
+
+                    'billing_province' =>
+                        'Centro',
+                ]
+            )
+            ->assertRedirect(
+                'https://sandbox.asaas.com/checkoutSession/show/checkout_address_modal'
+            );
+
+        $business->refresh();
+
+        $this->assertSame(
+            '39900000',
+            $business->postal_code
+        );
+
+        $this->assertSame(
+            'Avenida Teste',
+            $business->address
+        );
+
+        $this->assertSame(
+            '456',
+            $business->address_number
+        );
+
+        $this->assertSame(
+            'Sala 9',
+            $business->address_complement
+        );
+
+        $this->assertSame(
+            'Centro',
+            $business->province
+        );
+
+        Http::assertSent(
+            function (Request $request): bool {
+                if (
+                    $request->method() !== 'POST'
+                    || $request->url()
+                    !== 'https://api-sandbox.asaas.com/v3/customers'
+                ) {
+                    return false;
+                }
+
+                return
+                    data_get(
+                        $request->data(),
+                        'postalCode'
+                    ) === '39900000'
+
+                    && data_get(
+                        $request->data(),
+                        'address'
+                    ) === 'Avenida Teste'
+
+                    && data_get(
+                        $request->data(),
+                        'addressNumber'
+                    ) === '456'
+
+                    && data_get(
+                        $request->data(),
+                        'complement'
+                    ) === 'Sala 9'
+
+                    && data_get(
+                        $request->data(),
+                        'province'
+                    ) === 'Centro';
+            }
+        );
+    }
+
+    public function test_checkout_modal_rejects_incomplete_billing_address(): void
+    {
+        [
+            $user,
+        ] = $this->createFreeAccount();
+
+        Http::fake();
+
+        $this
+            ->actingAs($user)
+            ->from(
+                route(
+                    'settings.subscription'
+                )
+            )
+            ->post(
+                route(
+                    'settings.subscription.checkout.asaas'
+                ),
+                [
+                    'billing_address_submit' =>
+                        '1',
+
+                    'billing_postal_code' =>
+                        '39900-000',
+
+                    'billing_address' =>
+                        'Rua Teste',
+
+                    'billing_address_number' =>
+                        '',
+
+                    'billing_address_complement' =>
+                        '',
+
+                    'billing_province' =>
+                        'Centro',
+                ]
+            )
+            ->assertRedirect(
+                route(
+                    'settings.subscription'
+                )
+            )
+            ->assertSessionHasErrors([
+                'billing_address_number',
+            ]);
+
+        Http::assertNothingSent();
+    }
+
 }

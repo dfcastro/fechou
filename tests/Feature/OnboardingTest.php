@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Business;
 use App\Models\Plan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -84,6 +85,55 @@ class OnboardingTest extends TestCase
                 route('dashboard')
             );
     }
+
+    public function test_onboarding_rejects_document_used_by_another_business(): void
+    {
+        $owner =
+            User::factory()->create();
+
+        Business::factory()->create([
+            'user_id' =>
+                $owner->id,
+
+            'document' =>
+                '24971563792',
+        ]);
+
+        $user =
+            $this->userWithBusiness();
+
+        Livewire::actingAs($user)
+            ->test(
+                'pages::onboarding'
+            )
+            ->set(
+                'name',
+                'Empresa duplicada'
+            )
+            ->set(
+                'document',
+                '249.715.637-92'
+            )
+            ->set(
+                'whatsapp',
+                '33999999999'
+            )
+            ->call('save')
+            ->assertHasErrors([
+                'document',
+            ])
+            ->assertSee(
+                'Este CPF/CNPJ já está cadastrado em outra conta.'
+            );
+
+        $this->assertNull(
+            $user
+                ->fresh()
+                ->business
+                ->onboarding_completed_at
+        );
+    }
+
 
     public function test_user_can_complete_onboarding(): void
     {

@@ -397,7 +397,22 @@ new #[Title('Plano e assinatura | Fechou')]
 };
 ?>
 
-<div class="mx-auto w-full max-w-6xl space-y-5">
+<div
+    x-data="{
+        subscribeOpen: {{
+            (
+                $errors->has('billing_postal_code')
+                || $errors->has('billing_address')
+                || $errors->has('billing_address_number')
+                || $errors->has('billing_address_complement')
+                || $errors->has('billing_province')
+            )
+                ? 'true'
+                : 'false'
+        }}
+    }"
+    class="mx-auto w-full max-w-6xl space-y-5"
+>
 
     {{-- ========================================================= --}}
     {{-- CABEÇALHO --}}
@@ -1286,29 +1301,32 @@ new #[Title('Plano e assinatura | Fechou')]
 
                         </div>
 
-                        <form method="POST" action="{{ route('settings.subscription.checkout.asaas') }}" class="mt-5">
-                            @csrf
+                        <button
+                            type="button"
+                            x-on:click="
+                                subscribeOpen = true
+                            "
+                            class="
+                                mt-5
+                                inline-flex w-full
+                                items-center justify-center
+                                gap-2
+                                rounded-lg
+                                bg-violet-600
+                                px-4 py-2.5
+                                text-sm font-semibold
+                                text-white
+                                shadow-sm
+                                transition
+                                hover:bg-violet-700
 
-                            <button type="submit" class="
-                                            inline-flex w-full
-                                            items-center justify-center
-                                            gap-2
-                                            rounded-lg
-                                            bg-violet-600
-                                            px-4 py-2.5
-                                            text-sm font-semibold
-                                            text-white
-                                            shadow-sm
-                                            transition
-                                            hover:bg-violet-700
-
-                                            dark:bg-violet-500
-                                            dark:text-zinc-950
-                                            dark:hover:bg-violet-400
-                                        ">
-                                Assinar Fechou Pro
-                            </button>
-                        </form>
+                                dark:bg-violet-500
+                                dark:text-zinc-950
+                                dark:hover:bg-violet-400
+                            "
+                        >
+                            Assinar Fechou Pro
+                        </button>
 
                         <p class="
                                         mt-2
@@ -1843,29 +1861,31 @@ new #[Title('Plano e assinatura | Fechou')]
 
                         @else
 
-                            <form method="POST" action="{{ route('settings.subscription.checkout.asaas') }}">
-                                @csrf
+                            <button
+                                type="button"
+                                x-on:click="
+                                    subscribeOpen = true
+                                "
+                                class="
+                                    inline-flex w-full
+                                    items-center justify-center
+                                    gap-2
+                                    rounded-lg
+                                    bg-violet-600
+                                    px-4 py-2.5
+                                    text-sm font-semibold
+                                    text-white
+                                    shadow-sm
+                                    transition
+                                    hover:bg-violet-700
 
-                                <button type="submit" class="
-                                                inline-flex w-full
-                                                items-center justify-center
-                                                gap-2
-                                                rounded-lg
-                                                bg-violet-600
-                                                px-4 py-2.5
-                                                text-sm font-semibold
-                                                text-white
-                                                shadow-sm
-                                                transition
-                                                hover:bg-violet-700
-
-                                                dark:bg-violet-500
-                                                dark:text-zinc-950
-                                                dark:hover:bg-violet-400
-                                            ">
-                                    Assinar Fechou Pro
-                                </button>
-                            </form>
+                                    dark:bg-violet-500
+                                    dark:text-zinc-950
+                                    dark:hover:bg-violet-400
+                                "
+                            >
+                                Assinar Fechou Pro
+                            </button>
 
                         @endif
 
@@ -2022,6 +2042,482 @@ new #[Title('Plano e assinatura | Fechou')]
                 disponível durante o período de tolerância; os dados do
                 plano não são apagados se o acesso for suspenso.
             </p>
+
+        </div>
+
+    @endif
+
+
+
+    {{-- ========================================================= --}}
+    {{-- ENDEREÇO DE COBRANÇA PARA ASSINATURA --}}
+    {{-- ========================================================= --}}
+
+    @if ($this->isFree)
+
+        <div
+            x-cloak
+            x-show="subscribeOpen"
+            x-on:keydown.escape.window="
+                subscribeOpen = false
+            "
+            x-on:click.self="
+                subscribeOpen = false
+            "
+            class="
+                fixed inset-0 z-50
+                flex items-center justify-center
+                bg-zinc-950/60
+                p-4
+            "
+        >
+
+            <div
+                x-show="subscribeOpen"
+                x-transition
+                class="
+                    w-full max-w-lg
+                    rounded-2xl
+                    border border-zinc-200
+                    bg-white
+                    p-6
+                    shadow-2xl
+
+                    dark:border-zinc-800
+                    dark:bg-zinc-900
+                "
+            >
+
+                <div class="
+                    flex size-10
+                    items-center justify-center
+                    rounded-xl
+                    bg-violet-50
+                    text-violet-700
+
+                    dark:bg-violet-500/10
+                    dark:text-violet-300
+                ">
+                    <flux:icon.map-pin
+                        class="size-5"
+                    />
+                </div>
+
+                <h3 class="
+                    mt-4
+                    text-lg font-semibold
+                    text-zinc-950
+                    dark:text-white
+                ">
+                    Complete os dados para pagamento
+                </h3>
+
+                <p class="
+                    mt-2
+                    text-sm leading-6
+                    text-zinc-500
+                    dark:text-zinc-400
+                ">
+                    Precisamos destas informações para
+                    criar sua assinatura no Asaas.
+                    Os dados também ficarão salvos na
+                    sua empresa.
+                </p>
+
+                <form
+                    method="POST"
+                    action="{{
+                        route(
+                            'settings.subscription.checkout.asaas'
+                        )
+                    }}"
+                    class="mt-5 space-y-4"
+                >
+                    @csrf
+
+                    <input
+                        type="hidden"
+                        name="billing_address_submit"
+                        value="1"
+                    >
+
+                    <div>
+
+                        <label
+                            for="billing-postal-code"
+                            class="
+                                block
+                                text-sm font-medium
+                                text-zinc-700
+                                dark:text-zinc-300
+                            "
+                        >
+                            CEP
+                        </label>
+
+                        <input
+                            id="billing-postal-code"
+                            name="billing_postal_code"
+                            type="text"
+                            inputmode="numeric"
+                            maxlength="9"
+                            autocomplete="postal-code"
+                            required
+                            value="{{
+                                old(
+                                    'billing_postal_code',
+                                    $this->business
+                                        ?->postal_code
+                                )
+                            }}"
+                            placeholder="00000-000"
+                            class="
+                                mt-2 block w-full
+                                rounded-xl
+                                border border-zinc-300
+                                bg-white
+                                px-3.5 py-3
+                                text-sm text-zinc-900
+                                shadow-sm outline-none
+
+                                focus:border-violet-500
+                                focus:ring-2
+                                focus:ring-violet-500/20
+
+                                dark:border-zinc-700
+                                dark:bg-zinc-950
+                                dark:text-zinc-100
+                            "
+                        >
+
+                        @error('billing_postal_code')
+                            <p class="
+                                mt-1.5
+                                text-sm
+                                text-red-600
+                                dark:text-red-400
+                            ">
+                                {{ $message }}
+                            </p>
+                        @enderror
+
+                    </div>
+
+
+                    <div>
+
+                        <label
+                            for="billing-address"
+                            class="
+                                block
+                                text-sm font-medium
+                                text-zinc-700
+                                dark:text-zinc-300
+                            "
+                        >
+                            Endereço
+                        </label>
+
+                        <input
+                            id="billing-address"
+                            name="billing_address"
+                            type="text"
+                            autocomplete="address-line1"
+                            required
+                            value="{{
+                                old(
+                                    'billing_address',
+                                    $this->business
+                                        ?->address
+                                )
+                            }}"
+                            placeholder="Rua, avenida..."
+                            class="
+                                mt-2 block w-full
+                                rounded-xl
+                                border border-zinc-300
+                                bg-white
+                                px-3.5 py-3
+                                text-sm text-zinc-900
+                                shadow-sm outline-none
+
+                                focus:border-violet-500
+                                focus:ring-2
+                                focus:ring-violet-500/20
+
+                                dark:border-zinc-700
+                                dark:bg-zinc-950
+                                dark:text-zinc-100
+                            "
+                        >
+
+                        @error('billing_address')
+                            <p class="
+                                mt-1.5 text-sm
+                                text-red-600
+                                dark:text-red-400
+                            ">
+                                {{ $message }}
+                            </p>
+                        @enderror
+
+                    </div>
+
+
+                    <div class="
+                        grid gap-4
+                        sm:grid-cols-2
+                    ">
+
+                        <div>
+
+                            <label
+                                for="billing-address-number"
+                                class="
+                                    block
+                                    text-sm font-medium
+                                    text-zinc-700
+                                    dark:text-zinc-300
+                                "
+                            >
+                                Número
+                            </label>
+
+                            <input
+                                id="billing-address-number"
+                                name="billing_address_number"
+                                type="text"
+                                autocomplete="address-line2"
+                                required
+                                value="{{
+                                    old(
+                                        'billing_address_number',
+                                        $this->business
+                                            ?->address_number
+                                    )
+                                }}"
+                                placeholder="123"
+                                class="
+                                    mt-2 block w-full
+                                    rounded-xl
+                                    border border-zinc-300
+                                    bg-white
+                                    px-3.5 py-3
+                                    text-sm text-zinc-900
+                                    shadow-sm outline-none
+
+                                    focus:border-violet-500
+                                    focus:ring-2
+                                    focus:ring-violet-500/20
+
+                                    dark:border-zinc-700
+                                    dark:bg-zinc-950
+                                    dark:text-zinc-100
+                                "
+                            >
+
+                            @error('billing_address_number')
+                                <p class="
+                                    mt-1.5 text-sm
+                                    text-red-600
+                                    dark:text-red-400
+                                ">
+                                    {{ $message }}
+                                </p>
+                            @enderror
+
+                        </div>
+
+
+                        <div>
+
+                            <label
+                                for="billing-province"
+                                class="
+                                    block
+                                    text-sm font-medium
+                                    text-zinc-700
+                                    dark:text-zinc-300
+                                "
+                            >
+                                Bairro
+                            </label>
+
+                            <input
+                                id="billing-province"
+                                name="billing_province"
+                                type="text"
+                                required
+                                value="{{
+                                    old(
+                                        'billing_province',
+                                        $this->business
+                                            ?->province
+                                    )
+                                }}"
+                                placeholder="Centro"
+                                class="
+                                    mt-2 block w-full
+                                    rounded-xl
+                                    border border-zinc-300
+                                    bg-white
+                                    px-3.5 py-3
+                                    text-sm text-zinc-900
+                                    shadow-sm outline-none
+
+                                    focus:border-violet-500
+                                    focus:ring-2
+                                    focus:ring-violet-500/20
+
+                                    dark:border-zinc-700
+                                    dark:bg-zinc-950
+                                    dark:text-zinc-100
+                                "
+                            >
+
+                            @error('billing_province')
+                                <p class="
+                                    mt-1.5 text-sm
+                                    text-red-600
+                                    dark:text-red-400
+                                ">
+                                    {{ $message }}
+                                </p>
+                            @enderror
+
+                        </div>
+
+                    </div>
+
+
+                    <div>
+
+                        <div class="
+                            flex items-center
+                            justify-between gap-3
+                        ">
+
+                            <label
+                                for="billing-address-complement"
+                                class="
+                                    block
+                                    text-sm font-medium
+                                    text-zinc-700
+                                    dark:text-zinc-300
+                                "
+                            >
+                                Complemento
+                            </label>
+
+                            <span class="
+                                text-xs
+                                text-zinc-400
+                            ">
+                                Opcional
+                            </span>
+
+                        </div>
+
+                        <input
+                            id="billing-address-complement"
+                            name="billing_address_complement"
+                            type="text"
+                            value="{{
+                                old(
+                                    'billing_address_complement',
+                                    $this->business
+                                        ?->address_complement
+                                )
+                            }}"
+                            placeholder="Sala, bloco, apto..."
+                            class="
+                                mt-2 block w-full
+                                rounded-xl
+                                border border-zinc-300
+                                bg-white
+                                px-3.5 py-3
+                                text-sm text-zinc-900
+                                shadow-sm outline-none
+
+                                focus:border-violet-500
+                                focus:ring-2
+                                focus:ring-violet-500/20
+
+                                dark:border-zinc-700
+                                dark:bg-zinc-950
+                                dark:text-zinc-100
+                            "
+                        >
+
+                        @error('billing_address_complement')
+                            <p class="
+                                mt-1.5 text-sm
+                                text-red-600
+                                dark:text-red-400
+                            ">
+                                {{ $message }}
+                            </p>
+                        @enderror
+
+                    </div>
+
+
+                    <div class="
+                        flex flex-col-reverse gap-2
+                        border-t border-zinc-200
+                        pt-5
+
+                        sm:flex-row
+                        sm:justify-end
+
+                        dark:border-zinc-800
+                    ">
+
+                        <button
+                            type="button"
+                            x-on:click="
+                                subscribeOpen = false
+                            "
+                            class="
+                                rounded-lg
+                                border border-zinc-200
+                                px-4 py-2.5
+                                text-sm font-semibold
+                                text-zinc-700
+
+                                hover:bg-zinc-50
+
+                                dark:border-zinc-700
+                                dark:text-zinc-200
+                                dark:hover:bg-zinc-800
+                            "
+                        >
+                            Cancelar
+                        </button>
+
+                        <button
+                            type="submit"
+                            class="
+                                rounded-lg
+                                bg-violet-600
+                                px-4 py-2.5
+                                text-sm font-semibold
+                                text-white
+                                hover:bg-violet-700
+
+                                dark:bg-violet-500
+                                dark:text-zinc-950
+                                dark:hover:bg-violet-400
+                            "
+                        >
+                            Continuar para pagamento
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
 
         </div>
 

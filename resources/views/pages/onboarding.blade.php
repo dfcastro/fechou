@@ -2,6 +2,7 @@
 
 use App\Support\BrazilianInput;
 use App\Rules\ValidBrazilianDocument;
+use App\Rules\UniqueBusinessDocument;
 use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Title;
@@ -90,9 +91,13 @@ new #[Title('Primeiros passos | Fechou')]
             ],
 
             'document' => [
+                'bail',
                 'required',
                 'string',
                 new ValidBrazilianDocument(),
+                new UniqueBusinessDocument(
+                    $business->id
+                ),
                 'max:20',
             ],
 

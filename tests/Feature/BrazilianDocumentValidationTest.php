@@ -73,6 +73,65 @@ class BrazilianDocumentValidationTest
         ];
     }
 
+    public function test_business_can_keep_own_document_but_cannot_use_another_business_document(): void
+    {
+        [
+            $user,
+            $business,
+        ] = $this->account();
+
+        $business->update([
+            'document' =>
+                '24971563792',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(
+                'pages::settings.business'
+            )
+            ->set(
+                'document',
+                '249.715.637-92'
+            )
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $otherUser =
+            User::factory()->create();
+
+        Business::factory()->create([
+            'user_id' =>
+                $otherUser->id,
+
+            'document' =>
+                '52998224725',
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(
+                'pages::settings.business'
+            )
+            ->set(
+                'document',
+                '529.982.247-25'
+            )
+            ->call('save')
+            ->assertHasErrors([
+                'document',
+            ])
+            ->assertSee(
+                'Este CPF/CNPJ já está cadastrado em outra conta.'
+            );
+
+        $this->assertSame(
+            '24971563792',
+            $business
+                ->fresh()
+                ->document
+        );
+    }
+
+
     public function test_quick_client_rejects_invalid_document(): void
     {
         [
