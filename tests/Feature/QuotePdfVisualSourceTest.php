@@ -28,12 +28,12 @@ class QuotePdfVisualSourceTest extends TestCase
         );
 
         $this->assertStringContainsString(
-            'Documento gerado pelo Fechou',
+            'Documento gerado pelo Negozia',
             $source
         );
 
         $this->assertStringNotContainsString(
-            'Orçamento digital gerado pelo Fechou',
+            'Orçamento digital gerado pelo Negozia',
             $source
         );
     }

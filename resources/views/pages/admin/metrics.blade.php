@@ -5,7 +5,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Métricas | Fechou')]
+new #[Title('Métricas | Negozia')]
     class extends Component {
     public string $period = '30';
 
@@ -434,7 +434,7 @@ public function engagementDetail(
                     text-zinc-950
                     dark:text-white
                 ">
-                Métricas do Fechou
+                Métricas do Negozia
             </h1>
 
             <p class="

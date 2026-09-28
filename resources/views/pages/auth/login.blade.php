@@ -1,4 +1,4 @@
-<x-layouts::auth :title="'Entrar | Fechou'">
+<x-layouts::auth :title="'Entrar | Negozia'">
     <div class="flex flex-col gap-6">
 
         <div class="text-center">
@@ -61,13 +61,13 @@
                 class="w-full !bg-emerald-500 !text-white hover:!bg-emerald-600 dark:!bg-emerald-500 dark:!text-white dark:hover:!bg-emerald-400"
                 data-test="login-button"
             >
-                Entrar no Fechou
+                Entrar no Negozia
             </flux:button>
         </form>
 
         <div class="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-center dark:border-zinc-800 dark:bg-zinc-900/60">
             <p class="text-sm text-zinc-600 dark:text-zinc-400">
-                Ainda não usa o Fechou?
+                Ainda não usa o Negozia?
 
                 <flux:link :href="route('register')" wire:navigate>
                     Crie sua conta grátis

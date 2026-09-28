@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>Fechou — Propostas profissionais do envio ao aceite</title>
+    <title>Negozia — Propostas que viram negócios.</title>
     <meta
         name="description"
         content="Crie propostas profissionais, compartilhe pelo WhatsApp e acompanhe visualizações, follow-ups, versões e respostas em um só lugar."
@@ -35,7 +35,7 @@
                 </span>
 
                 <span class="text-lg font-bold tracking-tight">
-                    Fechou
+                    Negozia
                 </span>
             </a>
 
@@ -96,7 +96,7 @@
 
                     <h1 class="mt-6 max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
                         Envie propostas profissionais.
-                        <span class="text-emerald-500">Acompanhe até o cliente dizer: fechou.</span>
+                        <span class="text-emerald-500">Acompanhe cada etapa até a proposta virar negócio.</span>
                     </h1>
 
                     <p class="mt-6 max-w-2xl text-base leading-7 text-zinc-600 sm:text-lg dark:text-zinc-300">
@@ -230,7 +230,7 @@
                                         Próximo passo claro
                                     </p>
                                     <p class="mt-1 text-xs text-emerald-700/80 dark:text-emerald-300/80">
-                                        O Fechou ajuda você a não deixar oportunidades esfriarem.
+                                        O Negozia ajuda você a não deixar oportunidades esfriarem.
                                     </p>
                                 </div>
 
@@ -464,11 +464,11 @@
                 <span class="flex size-7 items-center justify-center rounded-lg bg-emerald-500 text-xs font-black text-white">
                     F
                 </span>
-                <span class="font-semibold text-zinc-700 dark:text-zinc-200">Fechou</span>
+                <span class="font-semibold text-zinc-700 dark:text-zinc-200">Negozia</span>
             </div>
 
             <p>
-                © {{ now()->year }} Fechou. Propostas profissionais sem complicação.
+                © {{ now()->year }} Negozia. Propostas que viram negócios.
             </p>
         </div>
     </footer>

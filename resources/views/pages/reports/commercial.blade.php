@@ -10,7 +10,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Relatórios | Fechou')] class extends Component
+new #[Title('Relatórios | Negozia')] class extends Component
 {
     public string $period = 'this_month';
 

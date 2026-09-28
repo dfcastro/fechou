@@ -17,7 +17,7 @@
                     <x-app-logo-icon class="size-10" />
 
                     <span class="text-lg tracking-tight">
-                        {{ config('app.name', 'Fechou') }}
+                        {{ config('app.name', 'Negozia') }}
                     </span>
                 </a>
 

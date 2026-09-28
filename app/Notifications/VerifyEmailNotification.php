@@ -10,7 +10,7 @@ class VerifyEmailNotification extends BaseVerifyEmail
     public function toMail($notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Confirme seu e-mail | Fechou')
+            ->subject('Confirme seu e-mail | Negozia')
             ->view(
                 'emails.verify-email',
                 [

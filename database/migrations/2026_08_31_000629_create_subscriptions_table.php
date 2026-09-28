@@ -51,7 +51,7 @@ return new class extends Migration
              * Campos do gateway.
              *
              * Ficam genéricos para não amarrarmos
-             * o Fechou a Stripe/Mercado Pago/etc.
+             * o Negozia a Stripe/Mercado Pago/etc.
              */
             $table->string('payment_provider')
                 ->nullable();

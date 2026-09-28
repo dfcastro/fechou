@@ -10,7 +10,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Plano e assinatura | Fechou')]
+new #[Title('Plano e assinatura | Negozia')]
     class extends Component {
 
     #[Computed]
@@ -318,11 +318,11 @@ new #[Title('Plano e assinatura | Fechou')]
                 . $this->formatDate(
                     $this->subscription?->grace_ends_at
                 )
-                . '. Até essa data, o Fechou Pro continua funcionando normalmente.';
+                . '. Até essa data, o Negozia Pro continua funcionando normalmente.';
         }
 
         if ($this->isCanceling) {
-            return 'Sua renovação foi cancelada, mas o Fechou Pro '
+            return 'Sua renovação foi cancelada, mas o Negozia Pro '
                 . 'continua disponível até '
                 . $this->formatDate(
                     $this->subscription?->ends_at
@@ -472,7 +472,7 @@ new #[Title('Plano e assinatura | Fechou')]
                     text-zinc-500
                     dark:text-zinc-400
                 ">
-                Acompanhe seu uso e compare os planos do Fechou.
+                Acompanhe seu uso e compare os planos do Negozia.
             </p>
 
         </div>
@@ -557,7 +557,7 @@ new #[Title('Plano e assinatura | Fechou')]
                     dark:text-emerald-300
                 ">
             Checkout concluído. Estamos aguardando a confirmação
-            financeira do Asaas para liberar o Fechou Pro.
+            financeira do Asaas para liberar o Negozia Pro.
         </div>
 
     @elseif (request()->query('checkout') === 'canceled')
@@ -1297,7 +1297,7 @@ new #[Title('Plano e assinatura | Fechou')]
                                         text-zinc-500
                                         dark:text-zinc-400
                                     ">
-                            Fechou Pro
+                            Negozia Pro
                         </p>
 
                         <div class="mt-1 flex items-end gap-1">
@@ -1366,7 +1366,7 @@ new #[Title('Plano e assinatura | Fechou')]
                                     dark:hover:bg-violet-400
                                 "
                             >
-                                Assinar Fechou Pro
+                                Assinar Negozia Pro
                             </button>
                         </form>
 
@@ -1813,7 +1813,7 @@ new #[Title('Plano e assinatura | Fechou')]
                                                 text-zinc-950
                                                 dark:text-white
                                             ">
-                                                Cancelar Fechou Pro?
+                                                Cancelar Negozia Pro?
                                             </h3>
 
                                             <p class="
@@ -1938,7 +1938,7 @@ new #[Title('Plano e assinatura | Fechou')]
                                         dark:hover:bg-violet-400
                                     "
                                 >
-                                    Assinar Fechou Pro
+                                    Assinar Negozia Pro
                                 </button>
                             </form>
 

@@ -41,7 +41,7 @@ class AsaasCheckoutController extends Controller
         ) {
             return back()->with(
                 'billing_info',
-                'O Fechou Pro já está ativo nesta conta.'
+                'O Negozia Pro já está ativo nesta conta.'
             );
         }
 

@@ -12,7 +12,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
-new #[Title('Empresa | Fechou')]
+new #[Title('Empresa | Negozia')]
     class extends Component {
     use WithFileUploads;
 
@@ -81,7 +81,7 @@ new #[Title('Empresa | Fechou')]
 
         /*
          * Garante que toda empresa tenha ao menos
-         * a assinatura padrão do Fechou.
+         * a assinatura padrão do Negozia.
          */
         $subscriptionService
             ->ensureDefaultSubscription(
@@ -753,7 +753,7 @@ new #[Title('Empresa | Fechou')]
                             dark:text-zinc-950
                             dark:hover:bg-violet-400
                         ">
-                        Conhecer o Fechou Pro
+                        Conhecer o Negozia Pro
 
                         <svg
                             class="size-4"

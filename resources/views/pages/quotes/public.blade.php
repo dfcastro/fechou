@@ -12,7 +12,7 @@ use Livewire\Attributes\Locked;
 
 new
     #[Layout('layouts.public')]
-    #[Title('Proposta | Fechou')]
+    #[Title('Proposta | Negozia')]
     class extends Component {
     #[Locked]
     public string $token;
@@ -1870,7 +1870,7 @@ new
                     ✓
                 </div>
 
-                Documento digital via Fechou
+                Documento digital via Negozia
 
             </div>
 

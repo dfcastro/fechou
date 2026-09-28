@@ -472,7 +472,7 @@ class AsaasCheckoutTest extends TestCase
             )
             ->assertSessionHas(
                 'billing_error',
-                'Informe o número do endereço em Configurações > Empresa antes de assinar o Fechou Pro.'
+                'Informe o número do endereço em Configurações > Empresa antes de assinar o Negozia Pro.'
             );
 
         Http::assertNothingSent();
@@ -509,7 +509,7 @@ class AsaasCheckoutTest extends TestCase
             )
             ->assertSessionHas(
                 'billing_info',
-                'O Fechou Pro já está ativo nesta conta.'
+                'O Negozia Pro já está ativo nesta conta.'
             );
 
         Http::assertNothingSent();

@@ -401,7 +401,7 @@ class AsaasWebhookController extends Controller
          * pelo gateway.
          *
          * Em eventos de cancelamento/inativação ela não deve
-         * estender o período já adquirido no Fechou.
+         * estender o período já adquirido no Negozia.
          */
         if (
             !$isCancellationEvent
@@ -517,7 +517,7 @@ class AsaasWebhookController extends Controller
         }
 
         /*
-         * Nem toda cobrança da conta Asaas pertence ao Fechou.
+         * Nem toda cobrança da conta Asaas pertence ao Negozia.
          * Se não houver subscription, apenas reconhecemos o evento
          * e retornamos HTTP 200 para não penalizar a fila.
          */

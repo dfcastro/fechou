@@ -1049,7 +1049,7 @@
 
         &nbsp;&bull;&nbsp;
 
-        Documento gerado pelo Fechou
+        Documento gerado pelo Negozia
 
     </div>
 

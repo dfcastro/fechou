@@ -233,7 +233,7 @@ class AsaasCancellationTest extends TestCase
                 'Cancelar assinatura'
             )
             ->assertSee(
-                'Cancelar Fechou Pro?'
+                'Cancelar Negozia Pro?'
             )
             ->assertSee(
                 'Confirmar cancelamento'

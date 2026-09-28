@@ -28,7 +28,7 @@ class PublicQuoteFinalPolishSourceTest extends TestCase
         );
 
         $this->assertStringContainsString(
-            'Documento digital via Fechou',
+            'Documento digital via Negozia',
             $source
         );
     }

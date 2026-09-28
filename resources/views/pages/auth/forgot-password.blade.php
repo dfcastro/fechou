@@ -1,4 +1,4 @@
-<x-layouts::auth :title="'Recuperar senha | Fechou'">
+<x-layouts::auth :title="'Recuperar senha | Negozia'">
     <div class="flex flex-col gap-6">
 
         <div class="text-center">

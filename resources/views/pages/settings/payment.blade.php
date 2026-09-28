@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Cobrança | Fechou')]
+new #[Title('Cobrança | Negozia')]
     class extends Component {
 
     public bool $paymentCollectionEnabled = false;

@@ -73,7 +73,7 @@
                             text-zinc-950
                             dark:text-white
                         ">
-                        Fechou
+                        Negozia
                     </div>
 
                     <div class="
@@ -385,7 +385,7 @@
 
                     dark:text-white
                 ">
-                Fechou
+                Negozia
             </span>
 
         </div>
@@ -470,7 +470,7 @@
                                 dark:text-amber-200/80
                             ">
                             Verifique seu endereço para compartilhar propostas
-                            e contratar o Fechou Pro.
+                            e contratar o Negozia Pro.
                         </p>
 
                         @if (session('status') === 'verification-link-sent')

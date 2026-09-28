@@ -1,4 +1,4 @@
-<x-layouts::auth :title="'Nova senha | Fechou'">
+<x-layouts::auth :title="'Nova senha | Negozia'">
     <div class="flex flex-col gap-6">
 
         <div class="text-center">
@@ -7,7 +7,7 @@
             </h1>
 
             <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
-                Crie uma nova senha para voltar a acessar sua conta do Fechou.
+                Crie uma nova senha para voltar a acessar sua conta do Negozia.
             </p>
         </div>
 

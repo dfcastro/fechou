@@ -8,7 +8,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Modelos de proposta | Fechou')]
+new #[Title('Modelos de proposta | Negozia')]
 class extends Component
 {
     public bool $showForm = false;

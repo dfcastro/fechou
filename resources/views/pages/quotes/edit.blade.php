@@ -8,7 +8,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Editar proposta | Fechou')] class extends Component
+new #[Title('Editar proposta | Negozia')] class extends Component
 {
     public int $quoteId;
     public int $quoteNumber;

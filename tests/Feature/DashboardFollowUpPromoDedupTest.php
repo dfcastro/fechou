@@ -22,7 +22,7 @@ class DashboardFollowUpPromoDedupTest extends TestCase
 
 
         $this->assertStringNotContainsString(
-            'Conhecer o Fechou Pro',
+            'Conhecer o Negozia Pro',
             $source
         );
 

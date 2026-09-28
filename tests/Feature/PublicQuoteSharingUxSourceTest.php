@@ -45,7 +45,7 @@ class PublicQuoteSharingUxSourceTest extends TestCase
         );
 
         $this->assertStringContainsString(
-            'Documento digital via Fechou',
+            'Documento digital via Negozia',
             $public
         );
 

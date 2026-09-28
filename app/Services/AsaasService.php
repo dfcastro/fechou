@@ -70,10 +70,10 @@ class AsaasService
 
             'items' => [
                 [
-                    'name' => 'Fechou Pro',
+                    'name' => 'Negozia Pro',
 
                     'description' =>
-                        'Assinatura mensal do Fechou Pro',
+                        'Assinatura mensal do Negozia Pro',
 
                     'quantity' => 1,
 
@@ -139,7 +139,7 @@ class AsaasService
 
         if ($address === '') {
             throw new RuntimeException(
-                'Informe o endereço em Configurações > Empresa antes de assinar o Fechou Pro.'
+                'Informe o endereço em Configurações > Empresa antes de assinar o Negozia Pro.'
             );
         }
 
@@ -149,7 +149,7 @@ class AsaasService
 
         if ($addressNumber === '') {
             throw new RuntimeException(
-                'Informe o número do endereço em Configurações > Empresa antes de assinar o Fechou Pro.'
+                'Informe o número do endereço em Configurações > Empresa antes de assinar o Negozia Pro.'
             );
         }
 
@@ -159,7 +159,7 @@ class AsaasService
 
         if ($province === '') {
             throw new RuntimeException(
-                'Informe o bairro em Configurações > Empresa antes de assinar o Fechou Pro.'
+                'Informe o bairro em Configurações > Empresa antes de assinar o Negozia Pro.'
             );
         }
 
@@ -175,7 +175,7 @@ class AsaasService
 
         if (strlen($postalCode) !== 8) {
             throw new RuntimeException(
-                'Informe um CEP válido em Configurações > Empresa antes de assinar o Fechou Pro.'
+                'Informe um CEP válido em Configurações > Empresa antes de assinar o Negozia Pro.'
             );
         }
 
@@ -259,7 +259,7 @@ class AsaasService
             )
         ) {
             throw new RuntimeException(
-                'Informe um CPF ou CNPJ válido em Configurações > Empresa antes de assinar o Fechou Pro.'
+                'Informe um CPF ou CNPJ válido em Configurações > Empresa antes de assinar o Negozia Pro.'
             );
         }
 
@@ -268,7 +268,7 @@ class AsaasService
             || trim($business->name) === ''
         ) {
             throw new RuntimeException(
-                'Informe o nome da empresa antes de assinar o Fechou Pro.'
+                'Informe o nome da empresa antes de assinar o Negozia Pro.'
             );
         }
 
@@ -467,7 +467,7 @@ class AsaasService
                     $apiKey,
 
                 'User-Agent' =>
-                    'Fechou/1.0 (Laravel; '
+                    'Negozia/1.0 (Laravel; '
                     . config(
                         'services.asaas.environment',
                         'sandbox'

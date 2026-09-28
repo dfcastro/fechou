@@ -6,7 +6,7 @@
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
-    <title>Confirme seu e-mail | Fechou</title>
+    <title>Confirme seu e-mail | Negozia</title>
 </head>
 
 <body
@@ -32,7 +32,7 @@
             opacity: 0;
         "
     >
-        Confirme seu endereço de e-mail para compartilhar propostas no Fechou.
+        Confirme seu endereço de e-mail para compartilhar propostas no Negozia.
     </div>
 
     <table
@@ -97,7 +97,7 @@
                                                 line-height: 1.2;
                                             "
                                         >
-                                            Fechou
+                                            Negozia
                                         </div>
 
                                         <div
@@ -191,10 +191,10 @@
                                                 line-height: 1.7;
                                             "
                                         >
-                                            Sua conta no Fechou já está pronta para uso.
+                                            Sua conta no Negozia já está pronta para uso.
                                             Confirme seu endereço de e-mail para liberar
                                             o compartilhamento de propostas e a contratação
-                                            do Fechou Pro.
+                                            do Negozia Pro.
                                         </p>
                                     </td>
                                 </tr>
@@ -286,7 +286,7 @@
                                                 line-height: 1.6;
                                             "
                                         >
-                                            Se você não criou uma conta no Fechou,
+                                            Se você não criou uma conta no Negozia,
                                             pode ignorar este e-mail.
                                         </p>
                                     </td>
@@ -305,7 +305,7 @@
                                 line-height: 1.6;
                             "
                         >
-                            Fechou · Propostas profissionais sem complicação
+                            Negozia · Propostas que viram negócios.
                         </td>
                     </tr>
                 </table>

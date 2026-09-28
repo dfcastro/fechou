@@ -102,7 +102,7 @@ class BusinessBrandingPlanTest extends TestCase
             ->get(route('settings.business'))
             ->assertOk()
             ->assertSee('Personalização da marca')
-            ->assertSee('Conhecer o Fechou Pro')
+            ->assertSee('Conhecer o Negozia Pro')
             ->assertDontSee('PNG ou JPG, até 2 MB');
 
         Livewire::actingAs($user)
@@ -142,7 +142,7 @@ class BusinessBrandingPlanTest extends TestCase
             ->assertOk()
             ->assertSee('Identidade da empresa')
             ->assertSee('PNG ou JPG, até 2 MB')
-            ->assertDontSee('Conhecer o Fechou Pro');
+            ->assertDontSee('Conhecer o Negozia Pro');
 
         $logo = UploadedFile::fake()
             ->image(

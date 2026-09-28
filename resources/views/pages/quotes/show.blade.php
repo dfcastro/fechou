@@ -7,7 +7,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Proposta | Fechou')]
+new #[Title('Proposta | Negozia')]
     class extends Component {
     public int $quoteId;
 
@@ -2489,7 +2489,7 @@ new #[Title('Proposta | Fechou')]
                                 dark:text-zinc-400
                             "
                         >
-                            Use o Fechou para compartilhar
+                            Use o Negozia para compartilhar
                             dados de pagamento e lembrar o
                             cliente pelo WhatsApp.
                         </p>
@@ -2578,7 +2578,7 @@ new #[Title('Proposta | Fechou')]
                             Nada muda no seu fluxo atual.
                             Ative o recurso somente se quiser
                             enviar Pix, instruções e lembretes
-                            pelo Fechou.
+                            pelo Negozia.
                         </p>
 
                     </div>

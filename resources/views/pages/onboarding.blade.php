@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Primeiros passos | Fechou')]
+new #[Title('Primeiros passos | Negozia')]
     class extends Component {
 
     public string $name = '';
@@ -225,7 +225,7 @@ new #[Title('Primeiros passos | Fechou')]
                         dark:text-zinc-400
                     ">
                         Preencha os dados básicos que identificam você
-                        nos orçamentos. Depois disso, o Fechou já estará
+                        nos orçamentos. Depois disso, o Negozia já estará
                         pronto para criar sua primeira proposta.
                     </p>
 

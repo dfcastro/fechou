@@ -16,6 +16,6 @@ class PublicQuoteVisualHierarchySourceTest extends TestCase
         $this->assertStringContainsString('Proposta aprovada', $source);
         $this->assertStringContainsString('sm:grid-cols-3', $source);
         $this->assertStringContainsString('Baixar PDF', $source);
-        $this->assertStringContainsString('Documento digital via Fechou', $source);
+        $this->assertStringContainsString('Documento digital via Negozia', $source);
     }
 }

@@ -7,7 +7,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-new #[Title('Propostas | Fechou')] class extends Component
+new #[Title('Propostas | Negozia')] class extends Component
 {
 
     /*

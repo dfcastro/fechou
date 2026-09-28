@@ -17,7 +17,7 @@ class BusinessSubscriptionTest extends TestCase
             'name' => 'Grátis',
             'slug' => 'free',
             'description' =>
-                'Plano gratuito para começar a usar o Fechou.',
+                'Plano gratuito para começar a usar o Negozia.',
             'price' => 0,
             'billing_interval' => 'month',
             'quote_limit' => null,

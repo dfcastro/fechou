@@ -7,7 +7,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Follow-up | Fechou')] class extends Component
+new #[Title('Follow-up | Negozia')] class extends Component
 {
     public bool $enabled = true;
 
@@ -155,7 +155,7 @@ new #[Title('Follow-up | Fechou')] class extends Component
         </h1>
 
         <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Defina quando o Fechou deve destacar propostas que precisam de atenção.
+            Defina quando o Negozia deve destacar propostas que precisam de atenção.
         </p>
 
     </div>
@@ -208,7 +208,7 @@ new #[Title('Follow-up | Fechou')] class extends Component
                         dark:text-violet-300
                     "
                 >
-                    Fechou Pro
+                    Negozia Pro
                 </div>
 
                 <h2
@@ -323,7 +323,7 @@ new #[Title('Follow-up | Fechou')] class extends Component
                             dark:hover:bg-violet-400
                         "
                     >
-                        Conhecer o Fechou Pro
+                        Conhecer o Negozia Pro
                     </a>
 
                     <span class="text-sm text-zinc-500 dark:text-zinc-400">

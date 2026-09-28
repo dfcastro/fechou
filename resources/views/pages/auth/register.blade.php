@@ -1,4 +1,4 @@
-<x-layouts::auth :title="'Criar conta | Fechou'">
+<x-layouts::auth :title="'Criar conta | Negozia'">
     <div class="flex flex-col gap-6">
 
         <div class="text-center">

@@ -13,7 +13,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Nova proposta | Fechou')] class extends Component
+new #[Title('Nova proposta | Negozia')] class extends Component
 {
     /*
     |--------------------------------------------------------------------------
@@ -1378,7 +1378,7 @@ $validated = $this->validate([
                             Seu plano não permite criar uma nova proposta neste momento.
                         @endif
 
-                        Conheça o Fechou Pro para criar propostas sem limite.
+                        Conheça o Negozia Pro para criar propostas sem limite.
                     </p>
                 </div>
 
@@ -3658,7 +3658,7 @@ $validated = $this->validate([
                                 dark:hover:bg-violet-400
                             "
                         >
-                            Conhecer o Fechou Pro
+                            Conhecer o Negozia Pro
 
                             <span
                                 class="

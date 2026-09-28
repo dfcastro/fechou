@@ -9,7 +9,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Dashboard | Fechou')]
+new #[Title('Dashboard | Negozia')]
     class extends Component {
     /*
     |--------------------------------------------------------------------------
@@ -2115,7 +2115,7 @@ new #[Title('Dashboard | Fechou')]
                                 dark:text-zinc-300
                             ">
                             Monte um orçamento profissional, adicione o cliente
-                            e os itens do serviço e deixe o Fechou organizar
+                            e os itens do serviço e deixe o Negozia organizar
                             todo o acompanhamento para você.
                         </p>
 

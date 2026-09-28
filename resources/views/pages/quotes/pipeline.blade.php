@@ -8,7 +8,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Pipeline | Fechou')] class extends Component
+new #[Title('Pipeline | Negozia')] class extends Component
 {
     public string $search = '';
 

@@ -1,4 +1,4 @@
-<x-layouts::auth :title="'Verificar e-mail | Fechou'">
+<x-layouts::auth :title="'Verificar e-mail | Negozia'">
     <div class="flex flex-col gap-6">
 
         <div class="text-center">
@@ -18,7 +18,7 @@
             <p class="mt-2 text-sm leading-6 text-zinc-500 dark:text-zinc-400">
                 Enviamos um link de verificação para o e-mail informado no cadastro.
                 Confirme seu endereço para liberar o compartilhamento de propostas
-                e a contratação do Fechou Pro.
+                e a contratação do Negozia Pro.
             </p>
         </div>
 
