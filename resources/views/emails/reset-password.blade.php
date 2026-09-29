@@ -2,11 +2,13 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
-    <title>Confirme seu e-mail | Negozia</title>
+
+    <title>Redefina sua senha | Negozia</title>
 </head>
 
 <body
@@ -24,6 +26,8 @@
             sans-serif;
     "
 >
+
+    {{-- Preheader --}}
     <div
         style="
             display: none;
@@ -32,8 +36,9 @@
             opacity: 0;
         "
     >
-        Confirme seu endereço de e-mail para compartilhar propostas no Negozia.
+        Recebemos uma solicitação para redefinir sua senha no Negozia.
     </div>
+
 
     <table
         role="presentation"
@@ -51,6 +56,7 @@
                 align="center"
                 style="padding: 40px 16px;"
             >
+
                 <table
                     role="presentation"
                     width="100%"
@@ -62,8 +68,11 @@
                         max-width: 600px;
                     "
                 >
+
+                    {{-- Marca --}}
                     <tr>
                         <td style="padding: 0 0 20px;">
+
                             <table
                                 role="presentation"
                                 cellspacing="0"
@@ -71,6 +80,7 @@
                                 border="0"
                             >
                                 <tr>
+
                                     <td
                                         align="center"
                                         valign="middle"
@@ -89,6 +99,7 @@
                                     </td>
 
                                     <td style="padding-left: 12px;">
+
                                         <div
                                             style="
                                                 color: #18181b;
@@ -110,12 +121,17 @@
                                         >
                                             Propostas que viram negócios
                                         </div>
+
                                     </td>
+
                                 </tr>
                             </table>
+
                         </td>
                     </tr>
 
+
+                    {{-- Card --}}
                     <tr>
                         <td
                             style="
@@ -125,6 +141,7 @@
                                 background: #ffffff;
                             "
                         >
+
                             <table
                                 role="presentation"
                                 width="100%"
@@ -132,6 +149,8 @@
                                 cellpadding="0"
                                 border="0"
                             >
+
+                                {{-- Faixa --}}
                                 <tr>
                                     <td
                                         style="
@@ -145,8 +164,18 @@
                                     </td>
                                 </tr>
 
+
+                                {{-- Conteúdo --}}
                                 <tr>
-                                    <td style="padding: 38px 40px 18px;">
+                                    <td
+                                        style="
+                                            padding:
+                                                38px
+                                                40px
+                                                18px;
+                                        "
+                                    >
+
                                         <div
                                             style="
                                                 margin-bottom: 10px;
@@ -157,8 +186,9 @@
                                                 text-transform: uppercase;
                                             "
                                         >
-                                            Só falta um passo
+                                            Segurança da sua conta
                                         </div>
+
 
                                         <h1
                                             style="
@@ -169,8 +199,9 @@
                                                 font-weight: 800;
                                             "
                                         >
-                                            Confirme seu e-mail
+                                            Redefina sua senha
                                         </h1>
+
 
                                         <p
                                             style="
@@ -180,8 +211,12 @@
                                                 line-height: 1.7;
                                             "
                                         >
-                                            Olá, <strong>{{ $user->name }}</strong>!
+                                            Olá,
+                                            <strong>
+                                                {{ $user->name }}
+                                            </strong>!
                                         </p>
+
 
                                         <p
                                             style="
@@ -191,16 +226,46 @@
                                                 line-height: 1.7;
                                             "
                                         >
-                                            Sua conta no Negozia já está pronta para uso.
-                                            Confirme seu endereço de e-mail para liberar
-                                            o compartilhamento de propostas e a contratação
-                                            do Negozia Pro.
+                                            Recebemos uma solicitação
+                                            para redefinir a senha da sua
+                                            conta no Negozia.
                                         </p>
+
+
+                                        <p
+                                            style="
+                                                margin: 10px 0 0;
+                                                color: #52525b;
+                                                font-size: 15px;
+                                                line-height: 1.7;
+                                            "
+                                        >
+                                            O link abaixo é válido por
+
+                                            <strong>
+                                                {{ $expiresIn }} minutos
+                                            </strong>.
+
+                                            Depois desse período, será
+                                            necessário solicitar uma nova
+                                            redefinição.
+                                        </p>
+
                                     </td>
                                 </tr>
 
+
+                                {{-- Botão --}}
                                 <tr>
-                                    <td style="padding: 10px 40px 28px;">
+                                    <td
+                                        style="
+                                            padding:
+                                                10px
+                                                40px
+                                                28px;
+                                        "
+                                    >
+
                                         <table
                                             role="presentation"
                                             cellspacing="0"
@@ -208,6 +273,7 @@
                                             border="0"
                                         >
                                             <tr>
+
                                                 <td
                                                     align="center"
                                                     style="
@@ -215,8 +281,9 @@
                                                         background: #10b981;
                                                     "
                                                 >
+
                                                     <a
-                                                        href="{{ $verificationUrl }}"
+                                                        href="{{ $resetUrl }}"
                                                         style="
                                                             display: inline-block;
                                                             padding: 14px 22px;
@@ -227,16 +294,29 @@
                                                             text-decoration: none;
                                                         "
                                                     >
-                                                        Confirmar meu e-mail
+                                                        Redefinir minha senha
                                                     </a>
+
                                                 </td>
+
                                             </tr>
                                         </table>
+
                                     </td>
                                 </tr>
 
+
+                                {{-- URL alternativa --}}
                                 <tr>
-                                    <td style="padding: 0 40px 32px;">
+                                    <td
+                                        style="
+                                            padding:
+                                                0
+                                                40px
+                                                32px;
+                                        "
+                                    >
+
                                         <div
                                             style="
                                                 padding: 18px;
@@ -244,6 +324,7 @@
                                                 background: #f4f4f5;
                                             "
                                         >
+
                                             <p
                                                 style="
                                                     margin: 0;
@@ -252,9 +333,11 @@
                                                     line-height: 1.6;
                                                 "
                                             >
-                                                Se o botão não funcionar, copie e cole
-                                                este endereço no navegador:
+                                                Se o botão não funcionar,
+                                                copie e cole este endereço
+                                                no navegador:
                                             </p>
+
 
                                             <p
                                                 style="
@@ -265,19 +348,28 @@
                                                     line-height: 1.6;
                                                 "
                                             >
-                                                {{ $verificationUrl }}
+                                                {{ $resetUrl }}
                                             </p>
+
                                         </div>
+
                                     </td>
                                 </tr>
 
+
+                                {{-- Segurança --}}
                                 <tr>
                                     <td
                                         style="
-                                            border-top: 1px solid #f4f4f5;
-                                            padding: 24px 40px 32px;
+                                            border-top:
+                                                1px solid #f4f4f5;
+                                            padding:
+                                                24px
+                                                40px
+                                                32px;
                                         "
                                     >
+
                                         <p
                                             style="
                                                 margin: 0;
@@ -286,33 +378,47 @@
                                                 line-height: 1.6;
                                             "
                                         >
-                                            Se você não criou uma conta no Negozia,
+                                            Se você não solicitou
+                                            a redefinição da senha,
                                             pode ignorar este e-mail.
+                                            Nenhuma alteração será
+                                            realizada em sua conta.
                                         </p>
+
                                     </td>
                                 </tr>
+
                             </table>
+
                         </td>
                     </tr>
 
+
+                    {{-- Rodapé --}}
                     <tr>
                         <td
                             align="center"
                             style="
-                                padding: 22px 16px 0;
+                                padding:
+                                    22px
+                                    16px
+                                    0;
                                 color: #a1a1aa;
                                 font-size: 11px;
                                 line-height: 1.6;
                             "
                         >
-                            Negozia · Propostas que viram negócios.
+                            Negozia · Propostas que viram negócios
                             <br>
                             Almenara, Minas Gerais
                         </td>
                     </tr>
+
                 </table>
+
             </td>
         </tr>
     </table>
+
 </body>
 </html>

@@ -457,15 +457,33 @@
     </main>
 
     <footer class="border-t border-zinc-200 dark:border-zinc-800">
-        <div class="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-8 text-sm text-zinc-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8 dark:text-zinc-400">
-            <div class="flex items-center gap-2">
-                <x-app-logo-icon class="size-7 shrink-0" />
-                <span class="font-semibold text-zinc-700 dark:text-zinc-200">Negozia</span>
+        <div class="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-8 text-sm text-zinc-500 sm:flex-row sm:items-end sm:justify-between sm:px-6 lg:px-8 dark:text-zinc-400">
+
+            <div>
+                <div class="flex items-center gap-2">
+                    <x-app-logo-icon class="size-7 shrink-0" />
+                    <span class="font-semibold text-zinc-700 dark:text-zinc-200">
+                        Negozia
+                    </span>
+                </div>
+
+                <div class="mt-3 space-y-1 text-xs leading-5">
+                    <p class="font-medium text-zinc-600 dark:text-zinc-300">
+                        Almenara, Minas Gerais
+                    </p>
+
+                    <p>
+                        Atendimento presencial mediante agendamento
+                        · Online para todo o Brasil
+                    </p>
+                </div>
             </div>
 
-            <p>
-                © {{ now()->year }} Negozia. Propostas que viram negócios.
+            <p class="text-xs sm:text-right">
+                © {{ now()->year }} Negozia.
+                Propostas que viram negócios.
             </p>
+
         </div>
     </footer>
 
