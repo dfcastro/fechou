@@ -14,6 +14,12 @@
         dark:text-zinc-100
     ">
 
+    @php
+        $isPlatformAdmin =
+            Auth::user()->is_admin === true
+            && Auth::user()->business === null;
+    @endphp
+
     {{-- ========================================================= --}}
     {{-- SIDEBAR --}}
     {{-- ========================================================= --}}
@@ -39,7 +45,13 @@
 
         <div class="px-2 pb-6 pt-2">
 
-            <a href="{{ route('dashboard') }}" wire:navigate class="flex items-center gap-3">
+            <a
+                href="{{ $isPlatformAdmin
+                    ? route('admin.metrics')
+                    : route('dashboard') }}"
+                wire:navigate
+                class="flex items-center gap-3"
+            >
 
                 <div class="
                         flex size-9
@@ -103,6 +115,8 @@
             {{-- GESTÃO --}}
             {{-- ================================================= --}}
 
+            @unless ($isPlatformAdmin)
+
             <flux:navlist.group heading="Gestão" class="grid">
 
                 <flux:navlist.item icon="home" href="{{ route('dashboard') }}"
@@ -147,6 +161,8 @@
 
             </flux:navlist.group>
 
+            @endunless
+
 
             {{-- ================================================= --}}
             {{-- ADMINISTRAÇÃO --}}
@@ -154,11 +170,45 @@
 
             @if (Auth::user()->is_admin)
 
-                <flux:navlist.group heading="Administração" class="mt-4">
+                <flux:navlist.group
+                    heading="Administração"
+                    class="mt-4"
+                >
 
-                    <flux:navlist.item icon="chart-bar" href="{{ route('admin.metrics') }}"
-                        :current="request()->routeIs('admin.metrics')" wire:navigate>
-                        Métricas
+                    <flux:navlist.item
+                        icon="chart-bar"
+                        href="{{ route('admin.metrics') }}"
+                        :current="request()->routeIs('admin.metrics')"
+                        wire:navigate
+                    >
+                        Visão geral
+                    </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="building-office-2"
+                        href="{{ route('admin.businesses.index') }}"
+                        :current="request()->routeIs('admin.businesses.*')"
+                        wire:navigate
+                    >
+                        Empresas
+                    </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="users"
+                        href="{{ route('admin.accesses') }}"
+                        :current="request()->routeIs('admin.accesses')"
+                        wire:navigate
+                    >
+                        Acessos
+                    </flux:navlist.item>
+
+                    <flux:navlist.item
+                        icon="clock"
+                        href="{{ route('admin.audit') }}"
+                        :current="request()->routeIs('admin.audit')"
+                        wire:navigate
+                    >
+                        Auditoria
                     </flux:navlist.item>
 
                 </flux:navlist.group>
@@ -169,6 +219,8 @@
             {{-- ================================================= --}}
             {{-- CONFIGURAÇÕES --}}
             {{-- ================================================= --}}
+
+            @unless ($isPlatformAdmin)
 
             <flux:navlist.group heading="Configurações" expandable :expanded="request()->routeIs('settings.*')"
                 class="mt-4">
@@ -201,6 +253,8 @@
                 @endif
 
             </flux:navlist.group>
+
+            @endunless
 
         </flux:navlist>
 

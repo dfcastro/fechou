@@ -851,7 +851,7 @@ new #[Title('Empresa | Negozia')]
                             dark:bg-zinc-950
                             dark:text-white
                         "
-                                    data-fechou-mask="document"
+                                    data-negozia-mask="document"
                                     inputmode="text"
                                     maxlength="18"
                                     autocomplete="off"
@@ -904,7 +904,7 @@ new #[Title('Empresa | Negozia')]
                             dark:bg-zinc-950
                             dark:text-white
                         "
-                                    data-fechou-mask="phone"
+                                    data-negozia-mask="phone"
                                     inputmode="tel"
                                     maxlength="15"
                                     autocomplete="tel"
@@ -930,7 +930,7 @@ new #[Title('Empresa | Negozia')]
                             dark:bg-zinc-950
                             dark:text-white
                         "
-                                    data-fechou-mask="phone"
+                                    data-negozia-mask="phone"
                                     inputmode="tel"
                                     maxlength="15"
                                     autocomplete="tel"
@@ -1105,7 +1105,7 @@ new #[Title('Empresa | Negozia')]
                         wire:model="state"
                         maxlength="2"
                         autocomplete="address-level1"
-                        data-fechou-mask="uf"
+                        data-negozia-mask="uf"
                         autocapitalize="characters"
                         class="
                             w-full rounded-lg
@@ -1132,7 +1132,7 @@ new #[Title('Empresa | Negozia')]
                     <input
                         type="text"
                         wire:model="postalCode"
-                        data-fechou-mask="cep"
+                        data-negozia-mask="cep"
                         inputmode="numeric"
                         maxlength="9"
                         autocomplete="postal-code"

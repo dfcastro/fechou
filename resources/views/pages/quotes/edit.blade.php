@@ -3101,7 +3101,7 @@ $validated = $this->validate([
                                 dark:text-white
                             "
 
-                                    data-fechou-mask="phone"
+                                    data-negozia-mask="phone"
                                     inputmode="tel"
                                     maxlength="15"
                                     autocomplete="tel"
@@ -3158,7 +3158,7 @@ $validated = $this->validate([
                                     dark:text-white
                                 "
 
-                                    data-fechou-mask="document"
+                                    data-negozia-mask="document"
                                     inputmode="text"
                                     maxlength="18"
                                     autocomplete="off"

@@ -280,6 +280,26 @@ new #[Title('Clientes | Negozia')] class extends Component
 };
 ?>
 
+<style>
+    .clients-mobile-list {
+        display: block;
+    }
+
+    .clients-desktop-table {
+        display: none;
+    }
+
+    @media (min-width: 768px) {
+        .clients-mobile-list {
+            display: none;
+        }
+
+        .clients-desktop-table {
+            display: block;
+        }
+    }
+</style>
+
 <div class="mx-auto w-full max-w-7xl space-y-6">
 
     {{-- Cabeçalho --}}
@@ -298,8 +318,9 @@ new #[Title('Clientes | Negozia')] class extends Component
             type="button"
             wire:click="create"
             class="
-                inline-flex items-center justify-center gap-2
+                inline-flex w-full items-center justify-center gap-2
                 rounded-lg
+                sm:w-auto
                 bg-emerald-600
                 px-4 py-2.5
                 text-sm font-semibold text-white
@@ -439,7 +460,7 @@ new #[Title('Clientes | Negozia')] class extends Component
                             focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20
                             dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100
                         "
-                                    data-fechou-mask="document"
+                                    data-negozia-mask="document"
                                     inputmode="text"
                                     maxlength="18"
                                     autocomplete="off"
@@ -468,7 +489,7 @@ new #[Title('Clientes | Negozia')] class extends Component
                             focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20
                             dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100
                         "
-                                    data-fechou-mask="phone"
+                                    data-negozia-mask="phone"
                                     inputmode="tel"
                                     maxlength="15"
                                     autocomplete="tel"
@@ -491,7 +512,7 @@ new #[Title('Clientes | Negozia')] class extends Component
                             focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20
                             dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100
                         "
-                                    data-fechou-mask="phone"
+                                    data-negozia-mask="phone"
                                     inputmode="tel"
                                     maxlength="15"
                                     autocomplete="tel"
@@ -641,7 +662,455 @@ new #[Title('Clientes | Negozia')] class extends Component
         dark:bg-zinc-900
     ">
 
-        <div class="overflow-x-auto">
+        {{-- ================================================= --}}
+        {{-- LISTA MOBILE --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="
+                clients-mobile-list
+                divide-y divide-zinc-100
+                dark:divide-zinc-800
+            "
+        >
+
+            @forelse ($this->clients as $client)
+
+                <article
+                    wire:key="client-mobile-{{ $client->id }}"
+                    class="p-4"
+                >
+
+                    {{-- Cabeçalho do cliente --}}
+                    <div
+                        class="
+                            flex min-w-0
+                            items-start justify-between
+                            gap-3
+                        "
+                    >
+
+                        <div class="min-w-0 flex-1">
+
+                            <p
+                                class="
+                                    break-words
+                                    text-base font-semibold
+                                    text-zinc-950
+                                    dark:text-white
+                                "
+                            >
+                                {{ $client->name }}
+                            </p>
+
+                            @if ($client->email)
+                                <p
+                                    class="
+                                        mt-1 break-all
+                                        text-sm
+                                        text-zinc-500
+                                        dark:text-zinc-400
+                                    "
+                                >
+                                    {{ $client->email }}
+                                </p>
+                            @endif
+
+                        </div>
+
+
+                        <div
+                            class="
+                                shrink-0
+                                text-right
+                            "
+                        >
+                            <span
+                                class="
+                                    inline-flex min-w-8
+                                    items-center justify-center
+                                    rounded-full
+                                    bg-zinc-100
+                                    px-2 py-1
+                                    text-xs font-semibold
+                                    text-zinc-700
+                                    dark:bg-zinc-800
+                                    dark:text-zinc-200
+                                "
+                            >
+                                {{ $client->quotes_count }}
+                            </span>
+
+                            <p
+                                class="
+                                    mt-1 text-[10px]
+                                    font-medium uppercase
+                                    tracking-wide
+                                    text-zinc-400
+                                    dark:text-zinc-500
+                                "
+                            >
+                                {{
+                                    $client->quotes_count === 1
+                                        ? 'proposta'
+                                        : 'propostas'
+                                }}
+                            </p>
+                        </div>
+
+                    </div>
+
+
+                    {{-- Dados principais --}}
+                    <div
+                        class="
+                            mt-4 grid
+                            grid-cols-1 gap-3
+                            min-[380px]:grid-cols-2
+                        "
+                    >
+
+                        <div class="min-w-0">
+
+                            <p
+                                class="
+                                    text-[11px] font-semibold
+                                    uppercase tracking-wide
+                                    text-zinc-400
+                                    dark:text-zinc-500
+                                "
+                            >
+                                Contato
+                            </p>
+
+                            <p
+                                class="
+                                    mt-1 break-words
+                                    text-sm font-medium
+                                    text-zinc-700
+                                    dark:text-zinc-200
+                                "
+                            >
+                                {{
+                                    BrazilianInput::formatPhone(
+                                        $client->whatsapp
+                                        ?: $client->phone
+                                    ) ?: '—'
+                                }}
+                            </p>
+
+                        </div>
+
+
+                        <div class="min-w-0">
+
+                            <p
+                                class="
+                                    text-[11px] font-semibold
+                                    uppercase tracking-wide
+                                    text-zinc-400
+                                    dark:text-zinc-500
+                                "
+                            >
+                                CPF / CNPJ
+                            </p>
+
+                            <p
+                                class="
+                                    mt-1 break-words
+                                    text-sm font-medium
+                                    text-zinc-700
+                                    dark:text-zinc-200
+                                "
+                            >
+                                {{
+                                    BrazilianInput::formatDocument(
+                                        $client->document
+                                    ) ?: '—'
+                                }}
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    {{-- Ações --}}
+                    <div
+                        class="
+                            mt-4 grid
+                            grid-cols-2 gap-2
+                            border-t border-zinc-100
+                            pt-4
+                            dark:border-zinc-800
+                        "
+                    >
+
+                        <button
+                            type="button"
+                            wire:click="edit({{ $client->id }})"
+                            class="
+                                inline-flex min-h-11
+                                items-center justify-center
+                                gap-2 rounded-lg
+                                border border-zinc-300
+                                bg-white
+                                px-3 py-2.5
+                                text-sm font-medium
+                                text-zinc-700
+                                transition
+                                hover:bg-zinc-100
+                                hover:text-zinc-950
+                                focus:outline-none
+                                focus:ring-2
+                                focus:ring-emerald-500/30
+                                dark:border-zinc-700
+                                dark:bg-zinc-900
+                                dark:text-zinc-200
+                                dark:hover:bg-zinc-800
+                                dark:hover:text-white
+                            "
+                        >
+                            <svg
+                                class="size-4"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"
+                                />
+                            </svg>
+
+                            Editar
+                        </button>
+
+
+                        <button
+                            type="button"
+                            wire:click="confirmDelete({{ $client->id }})"
+                            class="
+                                inline-flex min-h-11
+                                items-center justify-center
+                                gap-2 rounded-lg
+                                border border-red-200
+                                bg-white
+                                px-3 py-2.5
+                                text-sm font-medium
+                                text-red-600
+                                transition
+                                hover:bg-red-50
+                                hover:text-red-700
+                                focus:outline-none
+                                focus:ring-2
+                                focus:ring-red-500/30
+                                dark:border-red-900
+                                dark:bg-zinc-900
+                                dark:text-red-400
+                                dark:hover:bg-red-950/40
+                                dark:hover:text-red-300
+                            "
+                        >
+                            <svg
+                                class="size-4"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    d="M4 7h16M10 11v6M14 11v6"
+                                />
+
+                                <path
+                                    stroke-linejoin="round"
+                                    d="M6 7l1 14h10l1-14M9 7V4h6v3"
+                                />
+                            </svg>
+
+                            Excluir
+                        </button>
+
+                    </div>
+
+
+                    {{-- Confirmação de exclusão --}}
+                    @if (
+                        $confirmingDeleteId
+                        === $client->id
+                    )
+
+                        <div
+                            wire:key="delete-client-mobile-{{ $client->id }}"
+                            class="
+                                mt-4 rounded-xl
+                                border border-red-200
+                                bg-red-50
+                                p-4
+                                dark:border-red-950
+                                dark:bg-red-950/30
+                            "
+                        >
+
+                            <p
+                                class="
+                                    font-semibold
+                                    text-red-800
+                                    dark:text-red-300
+                                "
+                            >
+                                Excluir {{ $client->name }}?
+                            </p>
+
+                            <p
+                                class="
+                                    mt-1 text-sm
+                                    text-red-600
+                                    dark:text-red-400
+                                "
+                            >
+                                Esta ação removerá
+                                o cliente da sua lista.
+                            </p>
+
+
+                            <div
+                                class="
+                                    mt-4 grid
+                                    grid-cols-2 gap-2
+                                "
+                            >
+
+                                <button
+                                    type="button"
+                                    wire:click="cancelDelete"
+                                    class="
+                                        min-h-11
+                                        rounded-lg
+                                        border border-zinc-300
+                                        bg-white
+                                        px-3 py-2.5
+                                        text-sm font-medium
+                                        text-zinc-700
+                                        hover:bg-zinc-100
+                                        dark:border-zinc-700
+                                        dark:bg-zinc-900
+                                        dark:text-zinc-200
+                                        dark:hover:bg-zinc-800
+                                    "
+                                >
+                                    Cancelar
+                                </button>
+
+                                <button
+                                    type="button"
+                                    wire:click="deleteClient"
+                                    class="
+                                        min-h-11
+                                        rounded-lg
+                                        bg-red-600
+                                        px-3 py-2.5
+                                        text-sm font-semibold
+                                        text-white
+                                        hover:bg-red-700
+                                        dark:bg-red-500
+                                        dark:hover:bg-red-600
+                                    "
+                                >
+                                    Confirmar
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    @endif
+
+                </article>
+
+
+            @empty
+
+                <div
+                    class="
+                        px-5 py-12
+                        text-center
+                    "
+                >
+
+                    <div
+                        class="
+                            mx-auto flex size-12
+                            items-center justify-center
+                            rounded-full
+                            bg-zinc-100
+                            text-zinc-500
+                            dark:bg-zinc-800
+                            dark:text-zinc-300
+                        "
+                    >
+                        <svg
+                            class="size-6"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
+                            />
+
+                            <circle
+                                cx="9"
+                                cy="7"
+                                r="4"
+                            />
+
+                            <path
+                                stroke-linecap="round"
+                                d="M19 8v6M16 11h6"
+                            />
+                        </svg>
+                    </div>
+
+                    <p
+                        class="
+                            mt-4 font-medium
+                            text-zinc-700
+                            dark:text-zinc-200
+                        "
+                    >
+                        Nenhum cliente encontrado.
+                    </p>
+
+                    <p
+                        class="
+                            mt-1 text-sm
+                            text-zinc-500
+                            dark:text-zinc-400
+                        "
+                    >
+                        Cadastre seu primeiro cliente
+                        para criar uma proposta.
+                    </p>
+
+                </div>
+
+            @endforelse
+
+        </div>
+
+
+        {{-- ================================================= --}}
+        {{-- TABELA DESKTOP --}}
+        {{-- ================================================= --}}
+
+        <div class="clients-desktop-table overflow-x-auto">
             <table class="w-full text-sm">
 
                 <thead class="

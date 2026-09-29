@@ -1,11 +1,12 @@
 <?php
 
+use App\Services\PlatformOverviewService;
 use App\Services\ProductMetricsService;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Title('Métricas | Negozia')]
+new #[Title('Visão geral | Negozia')]
     class extends Component {
     public string $period = '30';
 
@@ -32,6 +33,16 @@ new #[Title('Métricas | Negozia')]
         return app(ProductMetricsService::class)
             ->summary($start, $end);
     }
+
+
+    #[Computed]
+    public function platformOverview(): array
+    {
+        return app(
+            PlatformOverviewService::class
+        )->summary();
+    }
+
 
     #[Computed]
     public function dailySeries(): array
@@ -434,7 +445,7 @@ public function engagementDetail(
                     text-zinc-950
                     dark:text-white
                 ">
-                Métricas do Negozia
+                Visão geral do Negozia
             </h1>
 
             <p class="
@@ -443,7 +454,7 @@ public function engagementDetail(
                     text-zinc-500
                     dark:text-zinc-400
                 ">
-                Acompanhe adoção, uso e conversão da plataforma.
+                Acompanhe empresas, assinaturas, acessos e desempenho da plataforma.
             </p>
 
         </div>
@@ -503,8 +514,589 @@ public function engagementDetail(
 
 
     {{-- ================================================= --}}
-    {{-- VISÃO GERAL --}}
     {{-- ================================================= --}}
+    {{-- VISÃO GERAL DA PLATAFORMA --}}
+    {{-- ================================================= --}}
+
+    @php
+        $overview = $this->platformOverview;
+
+        $platformCards = [
+            [
+                'label' => 'Empresas',
+                'value' => $overview['businesses']['total'],
+                'detail' => 'Cadastradas na plataforma',
+            ],
+            [
+                'label' => 'Ativas agora',
+                'value' => $overview['businesses']['active_now'],
+                'detail' => 'Últimos 15 minutos',
+            ],
+            [
+                'label' => 'Ativas hoje',
+                'value' => $overview['businesses']['active_today'],
+                'detail' => 'Com atividade hoje',
+            ],
+            [
+                'label' => 'Ativas em 7 dias',
+                'value' => $overview['businesses']['active_7_days'],
+                'detail' => 'Com atividade recente',
+            ],
+            [
+                'label' => 'Plano Grátis',
+                'value' => $overview['plans']['free'],
+                'detail' => 'Assinatura contratada',
+            ],
+            [
+                'label' => 'Plano Pro',
+                'value' => $overview['plans']['pro'],
+                'detail' => 'Assinatura contratada',
+            ],
+            [
+                'label' => 'Cortesias',
+                'value' => $overview['plans']['courtesy'],
+                'detail' => 'Acessos especiais ativos',
+            ],
+            [
+                'label' => 'MRR estimado',
+                'value' => 'R$ ' . number_format(
+                    $overview['revenue']['mrr'],
+                    2,
+                    ',',
+                    '.'
+                ),
+                'detail' => 'Assinaturas pagas ativas',
+            ],
+        ];
+    @endphp
+
+    <section class="space-y-3">
+
+        <div>
+            <h2
+                class="
+                    font-semibold
+                    text-zinc-950
+                    dark:text-white
+                "
+            >
+                Plataforma
+            </h2>
+
+            <p
+                class="
+                    mt-0.5 text-xs
+                    text-zinc-500
+                    dark:text-zinc-400
+                "
+            >
+                Situação atual das empresas,
+                acessos e assinaturas do Negozia.
+            </p>
+        </div>
+
+        <div
+            class="
+                grid grid-cols-1
+                gap-3
+                sm:grid-cols-2
+                xl:grid-cols-4
+            "
+        >
+            @foreach ($platformCards as $card)
+
+                <div
+                    class="
+                        rounded-xl
+                        border border-zinc-200
+                        bg-white p-5
+                        shadow-sm
+                        dark:border-zinc-800
+                        dark:bg-zinc-900
+                    "
+                >
+                    <p
+                        class="
+                            text-xs font-semibold
+                            text-zinc-500
+                            dark:text-zinc-400
+                        "
+                    >
+                        {{ $card['label'] }}
+                    </p>
+
+                    <p
+                        class="
+                            mt-3 text-3xl
+                            font-bold tracking-tight
+                            text-zinc-950
+                            dark:text-white
+                        "
+                    >
+                        {{ $card['value'] }}
+                    </p>
+
+                    <p
+                        class="
+                            mt-2 text-[11px]
+                            text-zinc-400
+                            dark:text-zinc-500
+                        "
+                    >
+                        {{ $card['detail'] }}
+                    </p>
+                </div>
+
+            @endforeach
+        </div>
+
+    </section>
+
+
+
+    {{-- ================================================= --}}
+    {{-- SAÚDE DAS ASSINATURAS --}}
+    {{-- ================================================= --}}
+
+    @php
+        $health = $overview['health'];
+
+        $healthCards = [
+            [
+                'label' => 'Pro ativos',
+                'value' => $health['pro_active'],
+                'detail' => 'Com acesso pago ativo neste momento',
+            ],
+            [
+                'label' => 'Pagamento pendente',
+                'value' => $health['payment_pending'],
+                'detail' => 'Assinaturas Pro em past_due',
+            ],
+            [
+                'label' => 'Em tolerância',
+                'value' => $health['grace_period'],
+                'detail' => 'Ainda com acesso Pro temporário',
+            ],
+            [
+                'label' => 'Cancelamento agendado',
+                'value' => $health['scheduled_cancellation'],
+                'detail' => 'Pro ativo até o fim do período',
+            ],
+            [
+                'label' => 'Suspensas',
+                'value' => $health['suspended'],
+                'detail' => 'Acesso Pro suspenso',
+            ],
+            [
+                'label' => 'Cortesias ativas',
+                'value' => $health['courtesy'],
+                'detail' => 'Acessos especiais vigentes',
+            ],
+            [
+                'label' => 'Sem assinatura',
+                'value' => $health['without_subscription'],
+                'detail' => 'Empresas sem plano atual',
+            ],
+            [
+                'label' => 'MRR atual',
+                'value' => 'R$ ' . number_format(
+                    $overview['revenue']['mrr'],
+                    2,
+                    ',',
+                    '.'
+                ),
+                'detail' => 'Receita mensal recorrente estimada',
+            ],
+        ];
+
+        $attention =
+            $overview['attention'];
+    @endphp
+
+
+    <section class="space-y-3">
+
+        <div>
+            <h2
+                class="
+                    font-semibold
+                    text-zinc-950
+                    dark:text-white
+                "
+            >
+                Saúde das assinaturas
+            </h2>
+
+            <p
+                class="
+                    mt-0.5 text-xs
+                    text-zinc-500
+                    dark:text-zinc-400
+                "
+            >
+                Situação financeira e de acesso
+                das empresas da plataforma.
+            </p>
+        </div>
+
+
+        <div
+            class="
+                grid grid-cols-1
+                gap-3
+                sm:grid-cols-2
+                xl:grid-cols-4
+            "
+        >
+            @foreach ($healthCards as $card)
+
+                <div
+                    class="
+                        rounded-xl
+                        border border-zinc-200
+                        bg-white p-5
+                        shadow-sm
+                        dark:border-zinc-800
+                        dark:bg-zinc-900
+                    "
+                >
+                    <p
+                        class="
+                            text-xs font-semibold
+                            text-zinc-500
+                            dark:text-zinc-400
+                        "
+                    >
+                        {{ $card['label'] }}
+                    </p>
+
+                    <p
+                        class="
+                            mt-3 text-3xl
+                            font-bold tracking-tight
+                            text-zinc-950
+                            dark:text-white
+                        "
+                    >
+                        {{ $card['value'] }}
+                    </p>
+
+                    <p
+                        class="
+                            mt-2 text-[11px]
+                            text-zinc-400
+                            dark:text-zinc-500
+                        "
+                    >
+                        {{ $card['detail'] }}
+                    </p>
+                </div>
+
+            @endforeach
+        </div>
+
+
+        {{-- ============================================= --}}
+        {{-- REQUER ATENÇÃO --}}
+        {{-- ============================================= --}}
+
+        <div
+            class="
+                overflow-hidden
+                rounded-xl
+                border border-zinc-200
+                bg-white
+                shadow-sm
+                dark:border-zinc-800
+                dark:bg-zinc-900
+            "
+        >
+
+            <div
+                class="
+                    flex items-center
+                    justify-between
+                    border-b border-zinc-200
+                    px-5 py-4
+                    dark:border-zinc-800
+                "
+            >
+                <div>
+                    <h3
+                        class="
+                            text-sm font-semibold
+                            text-zinc-950
+                            dark:text-white
+                        "
+                    >
+                        Requer atenção
+                    </h3>
+
+                    <p
+                        class="
+                            mt-0.5 text-xs
+                            text-zinc-500
+                        "
+                    >
+                        Cobranças, suspensões,
+                        cancelamentos e cortesias
+                        próximas do vencimento.
+                    </p>
+                </div>
+
+                @if (count($attention) > 0)
+                    <span
+                        class="
+                            rounded-full
+                            bg-amber-100
+                            px-2.5 py-1
+                            text-xs font-semibold
+                            text-amber-700
+                            dark:bg-amber-950/50
+                            dark:text-amber-300
+                        "
+                    >
+                        {{ count($attention) }}
+                    </span>
+                @endif
+            </div>
+
+
+            @if (count($attention) === 0)
+
+                <div
+                    class="
+                        px-5 py-8
+                        text-center
+                    "
+                >
+                    <p
+                        class="
+                            text-sm font-medium
+                            text-zinc-700
+                            dark:text-zinc-300
+                        "
+                    >
+                        Nenhuma situação requer atenção.
+                    </p>
+
+                    <p
+                        class="
+                            mt-1 text-xs
+                            text-zinc-500
+                        "
+                    >
+                        Cobranças e acessos estão
+                        normais neste momento.
+                    </p>
+                </div>
+
+            @else
+
+                <div
+                    class="
+                        divide-y divide-zinc-100
+                        dark:divide-zinc-800
+                    "
+                >
+
+                    @foreach ($attention as $item)
+
+                        @php
+                            $badgeClasses =
+                                match (
+                                    $item['level']
+                                ) {
+                                    'danger' =>
+                                        'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300',
+
+                                    'warning' =>
+                                        'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
+
+                                    'info' =>
+                                        'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
+
+                                    default =>
+                                        'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300',
+                                };
+                        @endphp
+
+                        <div
+                            class="
+                                flex flex-col gap-3
+                                px-5 py-4
+                                sm:flex-row
+                                sm:items-center
+                                sm:justify-between
+                            "
+                        >
+
+                            <div
+                                class="
+                                    min-w-0
+                                    flex-1
+                                "
+                            >
+                                <div
+                                    class="
+                                        flex flex-wrap
+                                        items-center
+                                        gap-2
+                                    "
+                                >
+                                    <span
+                                        class="
+                                            rounded-full
+                                            px-2 py-0.5
+                                            text-[11px]
+                                            font-semibold
+                                            {{ $badgeClasses }}
+                                        "
+                                    >
+                                        {{ $item['title'] }}
+                                    </span>
+
+                                    <a
+                                        href="{{ route(
+                                            'admin.businesses.show',
+                                            $item['business_id']
+                                        ) }}"
+                                        wire:navigate
+                                        class="
+                                            truncate
+                                            text-sm font-semibold
+                                            text-zinc-950
+                                            hover:underline
+                                            dark:text-white
+                                        "
+                                    >
+                                        {{ $item[
+                                            'business_name'
+                                        ] }}
+                                    </a>
+                                </div>
+
+                                <p
+                                    class="
+                                        mt-1 text-xs
+                                        text-zinc-500
+                                        dark:text-zinc-400
+                                    "
+                                >
+                                    {{ $item['detail'] }}
+                                </p>
+                            </div>
+
+
+                            <a
+                                href="{{ route(
+                                    'admin.businesses.show',
+                                    $item['business_id']
+                                ) }}"
+                                wire:navigate
+                                class="
+                                    whitespace-nowrap
+                                    text-xs font-semibold
+                                    text-zinc-600
+                                    transition
+                                    hover:text-zinc-950
+                                    dark:text-zinc-400
+                                    dark:hover:text-white
+                                "
+                            >
+                                Gerenciar →
+                            </a>
+
+                        </div>
+
+                    @endforeach
+                </div>
+
+            @endif
+        </div>
+    </section>
+
+
+    {{-- ================================================= --}}
+    {{-- ANALYTICS DO PRODUTO --}}
+    {{-- ================================================= --}}
+
+    <section
+        class="
+            border-t border-zinc-200
+            pt-8
+            dark:border-zinc-800
+        "
+    >
+        <div>
+            <p
+                class="
+                    text-xs font-semibold
+                    uppercase tracking-wider
+                    text-emerald-600
+                    dark:text-emerald-400
+                "
+            >
+                Analytics do produto
+            </p>
+
+            <h2
+                class="
+                    mt-1 text-xl font-semibold
+                    tracking-tight
+                    text-zinc-950
+                    dark:text-white
+                "
+            >
+                Uso e desempenho
+            </h2>
+
+            <p
+                class="
+                    mt-1 max-w-2xl
+                    text-sm
+                    text-zinc-500
+                    dark:text-zinc-400
+                "
+            >
+                Entenda como os usuários adotam o Negozia,
+                avançam pelas propostas e continuam utilizando
+                a plataforma.
+            </p>
+        </div>
+    </section>
+
+
+    {{-- ================================================= --}}
+    {{-- DESEMPENHO NO PERÍODO --}}
+    {{-- ================================================= --}}
+
+    <section class="space-y-3">
+
+        <div>
+            <h2
+                class="
+                    font-semibold
+                    text-zinc-950
+                    dark:text-white
+                "
+            >
+                Desempenho no período
+            </h2>
+
+            <p
+                class="
+                    mt-0.5 text-xs
+                    text-zinc-500
+                    dark:text-zinc-400
+                "
+            >
+                Cadastro, utilização e produção
+                no período selecionado.
+            </p>
+        </div>
+
+
 
     @php
         $cards = [
@@ -616,6 +1208,7 @@ public function engagementDetail(
 
     </div>
 
+    </section>
 
 
     {{-- ================================================= --}}

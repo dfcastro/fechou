@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+
 class Business extends Model
 {
     use HasFactory;
@@ -90,7 +91,7 @@ class Business extends Model
     protected function document(): Attribute
     {
         return Attribute::make(
-            set: fn ($value) =>
+            set: fn($value) =>
                 BrazilianInput::document($value)
         );
     }
@@ -98,7 +99,7 @@ class Business extends Model
     protected function phone(): Attribute
     {
         return Attribute::make(
-            set: fn ($value) =>
+            set: fn($value) =>
                 BrazilianInput::phone($value)
         );
     }
@@ -106,7 +107,7 @@ class Business extends Model
     protected function whatsapp(): Attribute
     {
         return Attribute::make(
-            set: fn ($value) =>
+            set: fn($value) =>
                 BrazilianInput::phone($value)
         );
     }
@@ -114,7 +115,7 @@ class Business extends Model
     protected function postalCode(): Attribute
     {
         return Attribute::make(
-            set: fn ($value) =>
+            set: fn($value) =>
                 BrazilianInput::cep($value)
         );
     }
@@ -122,8 +123,22 @@ class Business extends Model
     protected function state(): Attribute
     {
         return Attribute::make(
-            set: fn ($value) =>
+            set: fn($value) =>
                 BrazilianInput::state($value)
         );
+    }
+
+    public function accessGrants(): HasMany
+    {
+        return $this->hasMany(
+            BusinessAccessGrant::class
+        );
+    }
+
+    public function activeAccessGrants(): HasMany
+    {
+        return $this
+            ->accessGrants()
+            ->active();
     }
 }

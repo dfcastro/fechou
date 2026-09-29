@@ -7,6 +7,7 @@ use App\Models\Business;
 use App\Models\Plan;
 use App\Models\Subscription;
 use Illuminate\Support\Carbon;
+use App\Models\BusinessAccessGrant;
 
 class SubscriptionService
 {
@@ -80,9 +81,35 @@ class SubscriptionService
             || $subscription->isInGracePeriod();
     }
 
+
+    public function activeAccessGrant(
+        Business $business
+    ): ?BusinessAccessGrant {
+        return $business
+            ->accessGrants()
+            ->active()
+            ->with('plan')
+            ->latest('ends_at')
+            ->first();
+    }
     public function accessPlan(
         Business $business
     ): ?Plan {
+        /*
+         * Um benefício administrativo ativo prevalece
+         * temporariamente sobre o plano contratado.
+         *
+         * Não alteramos a assinatura real nem os dados
+         * financeiros do Asaas.
+         */
+        $grant = $this->activeAccessGrant(
+            $business
+        );
+
+        if ($grant?->plan) {
+            return $grant->plan;
+        }
+
         $subscription = $this->currentSubscription(
             $business
         );

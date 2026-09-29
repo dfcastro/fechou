@@ -30,6 +30,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' =>
                 \App\Http\Middleware\EnsureUserIsAdmin::class,
+
+            'track.activity' =>
+                \App\Http\Middleware\TrackUserActivity::class,
+
+            'platform.admin.redirect' =>
+                \App\Http\Middleware\RedirectPlatformAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

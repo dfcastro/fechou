@@ -33,7 +33,7 @@ class AsaasService
             'minutesToExpire' => 60,
 
             'externalReference' =>
-                'fechou-subscription-'
+                'negozia-subscription-'
                 . $subscription->id,
 
             /*
@@ -196,7 +196,7 @@ class AsaasService
         }
 
         $externalReference =
-            'fechou-business-'
+            'negozia-business-'
             . $business->id;
 
         /*

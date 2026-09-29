@@ -397,7 +397,7 @@ new #[Title('Primeiros passos | Negozia')]
                                 dark:text-zinc-100
                             "
 
-                                    data-fechou-mask="document"
+                                    data-negozia-mask="document"
                                     inputmode="text"
                                     maxlength="18"
                                     autocomplete="off"
@@ -457,7 +457,7 @@ new #[Title('Primeiros passos | Negozia')]
                                 dark:text-zinc-100
                             "
 
-                                    data-fechou-mask="phone"
+                                    data-negozia-mask="phone"
                                     maxlength="15"
                                 >
 

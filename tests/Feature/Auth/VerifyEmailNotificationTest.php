@@ -12,7 +12,7 @@ class VerifyEmailNotificationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_user_uses_fechou_verification_notification(): void
+    public function test_user_uses_negozia_verification_notification(): void
     {
         Notification::fake();
 

@@ -106,7 +106,7 @@ class QuotePaymentCollectionTest extends TestCase
             )
             ->set(
                 'pixKey',
-                'pix-teste-fechou'
+                'pix-teste-negozia'
             )
             ->set(
                 'paymentInstructions',
@@ -127,7 +127,7 @@ class QuotePaymentCollectionTest extends TestCase
         );
 
         $this->assertSame(
-            'pix-teste-fechou',
+            'pix-teste-negozia',
             $business->pix_key
         );
 

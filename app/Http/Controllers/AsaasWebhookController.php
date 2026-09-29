@@ -856,7 +856,7 @@ class AsaasWebhookController extends Controller
         if (
             is_string($externalReference)
             && preg_match(
-                '/^fechou-subscription-(\d+)$/',
+                '/^(?:fechou|negozia)-subscription-(\d+)$/',
                 $externalReference,
                 $matches
             )

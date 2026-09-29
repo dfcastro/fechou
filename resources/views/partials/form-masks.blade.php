@@ -1,10 +1,10 @@
 <script>
     (() => {
-        if (window.__fechouFormMasksLoaded) {
+        if (window.__negoziaFormMasksLoaded) {
             return;
         }
 
-        window.__fechouFormMasksLoaded = true;
+        window.__negoziaFormMasksLoaded = true;
 
         const digits = (value, max = null) => {
             let result = String(value ?? '')
@@ -111,7 +111,7 @@
 
         const applyMask = (element) => {
             const name =
-                element.dataset.fechouMask;
+                element.dataset.negoziaMask;
 
             const mask = masks[name];
 
@@ -130,13 +130,13 @@
         const applyAll = (root = document) => {
             if (
                 root instanceof Element
-                && root.matches('[data-fechou-mask]')
+                && root.matches('[data-negozia-mask]')
             ) {
                 applyMask(root);
             }
 
             root.querySelectorAll?.(
-                '[data-fechou-mask]'
+                '[data-negozia-mask]'
             ).forEach(applyMask);
         };
 
@@ -145,7 +145,7 @@
             (event) => {
                 const element =
                     event.target.closest?.(
-                        '[data-fechou-mask]'
+                        '[data-negozia-mask]'
                     );
 
                 if (element) {

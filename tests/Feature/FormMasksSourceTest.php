@@ -169,12 +169,12 @@ class FormMasksSourceTest extends TestCase
     {
         $checks = [
             'pages/clients/index.blade.php' => [
-                'data-fechou-mask="document"',
-                'data-fechou-mask="phone"',
+                'data-negozia-mask="document"',
+                'data-negozia-mask="phone"',
             ],
             'pages/onboarding.blade.php' => [
-                'data-fechou-mask="document"',
-                'data-fechou-mask="phone"',
+                'data-negozia-mask="document"',
+                'data-negozia-mask="phone"',
             ],
             'pages/quotes/create.blade.php' => [
                 'newClientDocument',
@@ -187,10 +187,10 @@ class FormMasksSourceTest extends TestCase
                 'inputmode="decimal"',
             ],
             'pages/settings/business.blade.php' => [
-                'data-fechou-mask="document"',
-                'data-fechou-mask="phone"',
-                'data-fechou-mask="cep"',
-                'data-fechou-mask="uf"',
+                'data-negozia-mask="document"',
+                'data-negozia-mask="phone"',
+                'data-negozia-mask="cep"',
+                'data-negozia-mask="uf"',
             ],
         ];
 
@@ -226,12 +226,12 @@ class FormMasksSourceTest extends TestCase
         );
 
         $this->assertStringContainsString(
-            'dataset.fechouMask',
+            'dataset.negoziaMask',
             $partial
         );
 
         $this->assertStringContainsString(
-            '[data-fechou-mask]',
+            '[data-negozia-mask]',
             $partial
         );
     }

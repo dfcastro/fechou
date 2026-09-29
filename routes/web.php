@@ -6,12 +6,36 @@ use App\Http\Controllers\AsaasWebhookController;
 use App\Http\Controllers\QuotePdfController;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+
+/*
+|--------------------------------------------------------------------------
+| Página pública
+|--------------------------------------------------------------------------
+*/
+
+Route::view(
+    '/',
+    'welcome'
+)->name('home');
+
+
+/*
+|--------------------------------------------------------------------------
+| Webhook Asaas
+|--------------------------------------------------------------------------
+*/
 
 Route::post(
     'webhooks/asaas',
     AsaasWebhookController::class
 )->name('webhooks.asaas');
+
+
+/*
+|--------------------------------------------------------------------------
+| Propostas públicas
+|--------------------------------------------------------------------------
+*/
 
 Route::get(
     'o/{token}/pdf',
@@ -23,8 +47,26 @@ Route::livewire(
     'pages::quotes.public'
 )->name('quotes.public');
 
-Route::middleware(['auth'])
+
+/*
+|--------------------------------------------------------------------------
+| Área autenticada
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware([
+    'auth',
+    'track.activity',
+    'platform.admin.redirect',
+])
     ->group(function () {
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Administração
+        |--------------------------------------------------------------------------
+        */
 
         Route::middleware('admin')
             ->prefix('admin')
@@ -35,17 +77,60 @@ Route::middleware(['auth'])
                     'metricas',
                     'pages::admin.metrics'
                 )->name('metrics');
+
+                Route::livewire(
+                    'empresas',
+                    'pages::admin.businesses.index'
+                )->name('businesses.index');
+
+                Route::livewire(
+                    'empresas/{business}',
+                    'pages::admin.businesses.show'
+                )->name('businesses.show');
+
+                Route::livewire(
+                    'acessos',
+                    'pages::admin.accesses'
+                )->name('accesses');
+
+                Route::livewire(
+                    'auditoria',
+                    'pages::admin.audit'
+                )->name('audit');
+
+
             });
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Onboarding
+        |--------------------------------------------------------------------------
+        */
 
         Route::livewire(
             'onboarding',
             'pages::onboarding'
         )->name('onboarding');
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Dashboard
+        |--------------------------------------------------------------------------
+        */
+
         Route::livewire(
             'dashboard',
             'pages::dashboard'
         )->name('dashboard');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Propostas
+        |--------------------------------------------------------------------------
+        */
 
         Route::livewire(
             'orcamentos',
@@ -56,17 +141,6 @@ Route::middleware(['auth'])
             'orcamentos/pipeline',
             'pages::quotes.pipeline'
         )->name('quotes.pipeline');
-
-
-        Route::livewire(
-            'relatorios',
-            'pages::reports.commercial'
-        )->name('reports.commercial');
-
-        Route::livewire(
-            'modelos',
-            'pages::quote-templates.index'
-        )->name('quote-templates.index');
 
         Route::livewire(
             'orcamentos/novo',
@@ -93,20 +167,72 @@ Route::middleware(['auth'])
             'pages::quotes.show'
         )->name('quotes.show');
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Relatórios
+        |--------------------------------------------------------------------------
+        */
+
+        Route::livewire(
+            'relatorios',
+            'pages::reports.commercial'
+        )->name('reports.commercial');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Modelos
+        |--------------------------------------------------------------------------
+        */
+
+        Route::livewire(
+            'modelos',
+            'pages::quote-templates.index'
+        )->name('quote-templates.index');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Clientes
+        |--------------------------------------------------------------------------
+        */
+
         Route::livewire(
             'clientes',
             'pages::clients.index'
         )->name('clients.index');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Configurações da empresa
+        |--------------------------------------------------------------------------
+        */
 
         Route::livewire(
             'configuracoes/empresa',
             'pages::settings.business'
         )->name('settings.business');
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | Configurações de cobrança
+        |--------------------------------------------------------------------------
+        */
+
         Route::livewire(
             'configuracoes/cobranca',
             'pages::settings.payment'
         )->name('settings.payment');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Plano e assinatura
+        |--------------------------------------------------------------------------
+        */
 
         Route::livewire(
             'configuracoes/plano',
@@ -118,19 +244,40 @@ Route::middleware(['auth'])
             [AsaasCheckoutController::class, 'store']
         )
             ->middleware('verified')
-            ->name('settings.subscription.checkout.asaas');
+            ->name(
+                'settings.subscription.checkout.asaas'
+            );
 
         Route::delete(
             'configuracoes/plano/assinatura/asaas',
-            [AsaasSubscriptionController::class, 'destroy']
+            [
+                AsaasSubscriptionController::class,
+                'destroy',
+            ]
         )
             ->middleware('verified')
-            ->name('settings.subscription.cancel.asaas');
+            ->name(
+                'settings.subscription.cancel.asaas'
+            );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Follow-up
+        |--------------------------------------------------------------------------
+        */
 
         Route::livewire(
             'configuracoes/follow-up',
             'pages::settings.follow-up'
         )->name('settings.follow-up');
     });
+
+
+/*
+|--------------------------------------------------------------------------
+| Configurações de conta
+|--------------------------------------------------------------------------
+*/
 
 require __DIR__ . '/settings.php';

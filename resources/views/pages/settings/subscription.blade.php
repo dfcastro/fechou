@@ -1208,7 +1208,7 @@ new #[Title('Plano e assinatura | Negozia')]
                                         dark:bg-violet-500
                                         dark:text-zinc-950
                                     ">
-                            FECHOU PRO
+                            NEGOZIA PRO
                         </span>
 
                         <h2 class="

@@ -237,7 +237,7 @@ class AsaasCheckoutTest extends TestCase
                         $data,
                         'externalReference'
                     ) ===
-                        'fechou-business-'
+                        'negozia-business-'
                         . $business->id
 
                     && data_get(
@@ -321,7 +321,7 @@ class AsaasCheckoutTest extends TestCase
                         $data,
                         'externalReference'
                     ) ===
-                        'fechou-subscription-'
+                        'negozia-subscription-'
                         . $subscription->id;
             }
         );

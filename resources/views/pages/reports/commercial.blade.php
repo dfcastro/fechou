@@ -1818,6 +1818,27 @@ new #[Title('Relatórios | Negozia')] class extends Component
     {{-- RESUMO MENSAL --}}
     {{-- ===================================================== --}}
 
+    <style>
+        .report-mobile-list {
+            display: block;
+        }
+
+        .report-desktop-table {
+            display: none;
+        }
+
+        @media (min-width: 768px) {
+            .report-mobile-list {
+                display: none;
+            }
+
+            .report-desktop-table {
+                display: block;
+            }
+        }
+    </style>
+
+
     <section
         class="
             overflow-hidden
@@ -1860,18 +1881,330 @@ new #[Title('Relatórios | Negozia')] class extends Component
         </div>
 
 
-        <div class="overflow-x-auto">
+        {{-- ================================================= --}}
+        {{-- RESUMO MENSAL MOBILE --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="
+                report-mobile-list
+                divide-y divide-zinc-100
+                dark:divide-zinc-800
+            "
+        >
+
+            @forelse ($this->report['months'] as $month)
+
+                <article
+                    wire:key="commercial-mobile-{{ $month['key'] }}"
+                    class="p-4"
+                >
+
+                    {{-- Mês + conversão --}}
+                    <div
+                        class="
+                            flex items-start
+                            justify-between
+                            gap-4
+                        "
+                    >
+
+                        <div>
+                            <p
+                                class="
+                                    text-base font-semibold
+                                    text-zinc-950
+                                    dark:text-white
+                                "
+                            >
+                                {{ $month['label'] }}
+                            </p>
+
+                            <p
+                                class="
+                                    mt-1 text-xs
+                                    text-zinc-500
+                                    dark:text-zinc-400
+                                "
+                            >
+                                Resumo comercial do mês
+                            </p>
+                        </div>
+
+
+                        <div class="shrink-0 text-right">
+
+                            <p
+                                class="
+                                    text-[10px] font-semibold
+                                    uppercase tracking-wide
+                                    text-zinc-400
+                                    dark:text-zinc-500
+                                "
+                            >
+                                Conversão
+                            </p>
+
+                            <p
+                                class="
+                                    mt-1 text-base
+                                    font-bold
+                                    text-zinc-950
+                                    dark:text-white
+                                "
+                            >
+                                {{
+                                    $this->formatRate(
+                                        $month['conversion']
+                                    )
+                                }}
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    {{-- Volume --}}
+                    <div
+                        class="
+                            mt-4 grid
+                            grid-cols-2 gap-3
+                        "
+                    >
+
+                        <div
+                            class="
+                                rounded-xl
+                                bg-zinc-50
+                                p-3
+                                dark:bg-zinc-950/60
+                            "
+                        >
+                            <p
+                                class="
+                                    text-[10px] font-semibold
+                                    uppercase tracking-wide
+                                    text-zinc-400
+                                    dark:text-zinc-500
+                                "
+                            >
+                                Enviadas
+                            </p>
+
+                            <p
+                                class="
+                                    mt-1 text-xl
+                                    font-bold
+                                    text-zinc-950
+                                    dark:text-white
+                                "
+                            >
+                                {{ $month['sent'] }}
+                            </p>
+                        </div>
+
+
+                        <div
+                            class="
+                                rounded-xl
+                                bg-zinc-50
+                                p-3
+                                dark:bg-zinc-950/60
+                            "
+                        >
+                            <p
+                                class="
+                                    text-[10px] font-semibold
+                                    uppercase tracking-wide
+                                    text-zinc-400
+                                    dark:text-zinc-500
+                                "
+                            >
+                                Aceitas
+                            </p>
+
+                            <p
+                                class="
+                                    mt-1 text-xl
+                                    font-bold
+                                    text-zinc-950
+                                    dark:text-white
+                                "
+                            >
+                                {{ $month['accepted'] }}
+                            </p>
+                        </div>
+
+                    </div>
+
+
+                    {{-- Ticket --}}
+                    <div
+                        class="
+                            mt-4
+                            border-t border-zinc-100
+                            pt-4
+                            dark:border-zinc-800
+                        "
+                    >
+                        <p
+                            class="
+                                text-[10px] font-semibold
+                                uppercase tracking-wide
+                                text-zinc-400
+                                dark:text-zinc-500
+                            "
+                        >
+                            Ticket médio
+                        </p>
+
+                        <p
+                            class="
+                                mt-1 text-sm
+                                font-semibold
+                                text-zinc-800
+                                dark:text-zinc-100
+                            "
+                        >
+                            {{
+                                $this->money(
+                                    $month['ticket']
+                                )
+                            }}
+                        </p>
+                    </div>
+
+
+                    {{-- Financeiro --}}
+                    <div
+                        class="
+                            mt-4 grid
+                            grid-cols-2 gap-3
+                        "
+                    >
+
+                        <div class="min-w-0">
+
+                            <p
+                                class="
+                                    text-[10px] font-semibold
+                                    uppercase tracking-wide
+                                    text-zinc-400
+                                    dark:text-zinc-500
+                                "
+                            >
+                                Recebido
+                            </p>
+
+                            <p
+                                class="
+                                    mt-1 break-words
+                                    text-sm font-semibold
+                                    text-emerald-700
+                                    dark:text-emerald-400
+                                "
+                            >
+                                {{
+                                    $this->money(
+                                        $month['received']
+                                    )
+                                }}
+                            </p>
+
+                        </div>
+
+
+                        <div class="min-w-0">
+
+                            <p
+                                class="
+                                    text-[10px] font-semibold
+                                    uppercase tracking-wide
+                                    text-zinc-400
+                                    dark:text-zinc-500
+                                "
+                            >
+                                Em aberto
+                            </p>
+
+                            <p
+                                class="
+                                    mt-1 break-words
+                                    text-sm font-semibold
+                                    text-amber-700
+                                    dark:text-amber-400
+                                "
+                            >
+                                {{
+                                    $this->money(
+                                        $month['open']
+                                    )
+                                }}
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </article>
+
+
+            @empty
+
+                <div
+                    class="
+                        px-5 py-10
+                        text-center
+                    "
+                >
+                    <p
+                        class="
+                            text-sm font-medium
+                            text-zinc-700
+                            dark:text-zinc-200
+                        "
+                    >
+                        Nenhum dado disponível.
+                    </p>
+
+                    <p
+                        class="
+                            mt-1 text-xs
+                            text-zinc-500
+                            dark:text-zinc-400
+                        "
+                    >
+                        Não há movimentação comercial
+                        no período selecionado.
+                    </p>
+                </div>
+
+            @endforelse
+
+        </div>
+
+
+        {{-- ================================================= --}}
+        {{-- RESUMO MENSAL DESKTOP --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="
+                report-desktop-table
+                overflow-x-auto
+            "
+        >
 
             <table
                 class="
                     min-w-full
                     divide-y divide-zinc-200
-
                     text-sm
-
                     dark:divide-zinc-800
                 "
             >
+
                 <thead
                     class="
                         bg-zinc-50
@@ -1879,6 +2212,7 @@ new #[Title('Relatórios | Negozia')] class extends Component
                     "
                 >
                     <tr>
+
                         @foreach ([
                             'Mês',
                             'Enviadas',
@@ -1912,8 +2246,10 @@ new #[Title('Relatórios | Negozia')] class extends Component
                             </th>
 
                         @endforeach
+
                     </tr>
                 </thead>
+
 
                 <tbody
                     class="
@@ -1927,6 +2263,7 @@ new #[Title('Relatórios | Negozia')] class extends Component
                         <tr
                             wire:key="commercial-row-{{ $month['key'] }}"
                         >
+
                             <td
                                 class="
                                     whitespace-nowrap
@@ -1939,6 +2276,7 @@ new #[Title('Relatórios | Negozia')] class extends Component
                                 {{ $month['label'] }}
                             </td>
 
+
                             <td
                                 class="
                                     whitespace-nowrap
@@ -1950,6 +2288,7 @@ new #[Title('Relatórios | Negozia')] class extends Component
                                 {{ $month['sent'] }}
                             </td>
 
+
                             <td
                                 class="
                                     whitespace-nowrap
@@ -1960,6 +2299,7 @@ new #[Title('Relatórios | Negozia')] class extends Component
                             >
                                 {{ $month['accepted'] }}
                             </td>
+
 
                             <td
                                 class="
@@ -1976,6 +2316,7 @@ new #[Title('Relatórios | Negozia')] class extends Component
                                     )
                                 }}
                             </td>
+
 
                             <td
                                 class="
@@ -1996,6 +2337,7 @@ new #[Title('Relatórios | Negozia')] class extends Component
                                 }}
                             </td>
 
+
                             <td
                                 class="
                                     whitespace-nowrap
@@ -2012,6 +2354,7 @@ new #[Title('Relatórios | Negozia')] class extends Component
                                 }}
                             </td>
 
+
                             <td
                                 class="
                                     whitespace-nowrap
@@ -2027,11 +2370,13 @@ new #[Title('Relatórios | Negozia')] class extends Component
                                     )
                                 }}
                             </td>
+
                         </tr>
 
                     @endforeach
 
                 </tbody>
+
             </table>
 
         </div>
