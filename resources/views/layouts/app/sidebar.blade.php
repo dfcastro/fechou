@@ -53,26 +53,9 @@
                 class="flex items-center gap-3"
             >
 
-                <div class="
-                        flex size-9
-                        items-center
-                        justify-center
-
-                        rounded-xl
-
-                        bg-emerald-600
-
-                        text-lg
-                        font-bold
-                        text-white
-
-                        shadow-sm
-
-                        dark:bg-emerald-500
-                        dark:text-zinc-950
-                    ">
-                    F
-                </div>
+                <x-app-logo-icon
+                    class="size-9 shrink-0 shadow-sm"
+                />
 
 
                 <div class="min-w-0">
@@ -95,7 +78,7 @@
                             text-zinc-400
                             dark:text-zinc-500
                         ">
-                        Propostas que vendem
+                        Propostas que viram negócios
                     </div>
 
                 </div>
@@ -413,24 +396,9 @@
 
         <div class="ml-2 flex items-center gap-2">
 
-            <div class="
-                    flex size-7
-                    items-center
-                    justify-center
-
-                    rounded-lg
-
-                    bg-emerald-600
-
-                    text-sm
-                    font-bold
-                    text-white
-
-                    dark:bg-emerald-500
-                    dark:text-zinc-950
-                ">
-                F
-            </div>
+            <x-app-logo-icon
+                class="size-7 shrink-0"
+            />
 
 
             <span class="
