@@ -77,6 +77,20 @@ class SubscriptionService
     public function hasPlanAccess(
         Subscription $subscription
     ): bool {
+        /*
+         * Pagamentos manuais como Pix possuem período
+         * adquirido com data final definida.
+         *
+         * Mesmo que o status financeiro ainda esteja
+         * "active", o acesso termina quando ends_at passa.
+         */
+        if (
+            $subscription->ends_at
+            && $subscription->ends_at->isPast()
+        ) {
+            return false;
+        }
+
         return $subscription->isActive()
             || $subscription->isInGracePeriod();
     }
@@ -121,6 +135,25 @@ class SubscriptionService
         if ($this->hasPlanAccess($subscription)) {
             return $subscription->plan;
         }
+
+        /*
+         * Período pago manualmente encerrado.
+         *
+         * Mantemos o histórico da assinatura Pro, mas
+         * os recursos disponíveis passam a ser os do
+         * plano Grátis até uma nova renovação.
+         */
+        if (
+            !$subscription->plan->isFree()
+            && $subscription->ends_at
+            && $subscription->ends_at->isPast()
+        ) {
+            return Plan::query()
+                ->where('slug', 'free')
+                ->where('is_active', true)
+                ->first();
+        }
+
 
         /*
          * Somente assinaturas pagas via gateway suspensas por cobrança

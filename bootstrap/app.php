@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             except: [
                 'webhooks/asaas',
                 'webhooks/stripe',
+                'webhooks/mercadopago',
             ]
         );
 

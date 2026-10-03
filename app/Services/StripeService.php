@@ -289,4 +289,43 @@ class StripeService
             $secret
         );
     }
+
+    public function scheduleCancellation(
+        \App\Models\Subscription $subscription
+    ): void {
+        $secret = trim(
+            (string) config(
+                'services.stripe.secret'
+            )
+        );
+
+        if ($secret === '') {
+            throw new \RuntimeException(
+                'A chave da Stripe não está configurada.'
+            );
+        }
+
+        $subscriptionId = trim(
+            (string)
+            $subscription->provider_subscription_id
+        );
+
+        if ($subscriptionId === '') {
+            throw new \RuntimeException(
+                'A assinatura da Stripe não foi localizada.'
+            );
+        }
+
+        $stripe = new \Stripe\StripeClient(
+            $secret
+        );
+
+        $stripe->subscriptions->update(
+            $subscriptionId,
+            [
+                'cancel_at_period_end' => true,
+            ]
+        );
+    }
+
 }

@@ -239,6 +239,19 @@ new #[Title('Plano e assinatura | Negozia')]
             return 'Seu plano Grátis está ativo.';
         }
 
+        if (
+            $this->isPro
+            && $this->subscription
+                ?->payment_provider === 'mercadopago_pix'
+        ) {
+            return 'Seu Pro está ativo até '
+                . $this->formatDate(
+                    $this->subscription
+                        ?->current_period_ends_at
+                )
+                . '. O pagamento via Pix não possui renovação automática.';
+        }
+
         return match ($this->subscription?->status) {
             'trialing' =>
                 'Seu período de avaliação está em andamento.',
@@ -1376,7 +1389,43 @@ new #[Title('Plano e assinatura | Negozia')]
                                     dark:hover:bg-violet-400
                                 "
                             >
-                                Assinar Negozia Pro
+                                Assinar com cartão
+                            </button>
+                        </form>
+
+                        <form
+                            method="POST"
+                            action="{{
+                                route(
+                                    'settings.subscription.checkout.pix'
+                                )
+                            }}"
+                            class="mt-2"
+                        >
+                            @csrf
+
+                            <button
+                                type="submit"
+                                class="
+                                    inline-flex w-full
+                                    items-center justify-center
+                                    gap-2
+                                    rounded-lg
+                                    border border-emerald-300
+                                    bg-emerald-50
+                                    px-4 py-2.5
+                                    text-sm font-semibold
+                                    text-emerald-700
+                                    transition
+                                    hover:bg-emerald-100
+
+                                    dark:border-emerald-800
+                                    dark:bg-emerald-950/30
+                                    dark:text-emerald-300
+                                    dark:hover:bg-emerald-950/60
+                                "
+                            >
+                                Pagar com Pix
                             </button>
                         </form>
 
@@ -1386,7 +1435,7 @@ new #[Title('Plano e assinatura | Negozia')]
                                         text-[11px] leading-5
                                         text-zinc-400
                                     ">
-                            Pagamento seguro em ambiente externo protegido.
+                            Cartão com renovação automática ou Pix com 30 dias de acesso.
                         </p>
 
                     </div>
@@ -1737,8 +1786,15 @@ new #[Title('Plano e assinatura | Negozia')]
 
                             @if (
                                 !$this->isCanceling
-                                && $this->subscription
-                                    ?->payment_provider === 'asaas'
+                                && in_array(
+                                    $this->subscription
+                                        ?->payment_provider,
+                                    [
+                                        'asaas',
+                                        'stripe',
+                                    ],
+                                    true
+                                )
                                 && $this->subscription
                                     ?->provider_subscription_id
                             )
@@ -1878,7 +1934,11 @@ new #[Title('Plano e assinatura | Negozia')]
                                                     method="POST"
                                                     action="{{
                                                         route(
-                                                            'settings.subscription.cancel.asaas'
+                                                            $this->subscription
+                                                                    ?->payment_provider
+                                                                === 'stripe'
+                                                                    ? 'settings.subscription.cancel.stripe'
+                                                                    : 'settings.subscription.cancel.asaas'
                                                         )
                                                     }}"
                                                 >

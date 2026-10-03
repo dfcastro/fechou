@@ -65,4 +65,25 @@ return [
         ),
     ],
 
+
+    'mercadopago' => [
+        'environment' => env(
+            'MERCADOPAGO_ENV',
+            'test'
+        ),
+
+        'base_url' => env(
+            'MERCADOPAGO_API_URL',
+            'https://api.mercadopago.com'
+        ),
+
+        'access_token' => env(
+            'MERCADOPAGO_ACCESS_TOKEN'
+        ),
+
+        'webhook_secret' => env(
+            'MERCADOPAGO_WEBHOOK_SECRET'
+        ),
+    ],
+
 ];

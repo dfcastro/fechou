@@ -4,6 +4,9 @@ use App\Http\Controllers\AsaasCheckoutController;
 use App\Http\Controllers\AsaasSubscriptionController;
 use App\Http\Controllers\AsaasWebhookController;
 use App\Http\Controllers\StripeWebhookController;
+use App\Http\Controllers\StripeSubscriptionController;
+use App\Http\Controllers\MercadoPagoWebhookController;
+use App\Http\Controllers\MercadoPagoPixController;
 use App\Http\Controllers\StripeCheckoutController;
 use App\Http\Controllers\QuotePdfController;
 use Illuminate\Support\Facades\Route;
@@ -43,6 +46,12 @@ Route::post(
     'webhooks/stripe',
     StripeWebhookController::class
 )->name('webhooks.stripe');
+
+
+Route::post(
+    'webhooks/mercadopago',
+    MercadoPagoWebhookController::class
+)->name('webhooks.mercadopago');
 
 
 /*
@@ -269,6 +278,44 @@ Route::middleware([
             ->middleware('verified')
             ->name(
                 'settings.subscription.checkout.stripe'
+            );
+
+
+        Route::post(
+            'configuracoes/plano/checkout/pix',
+            [MercadoPagoPixController::class, 'store']
+        )
+            ->middleware('verified')
+            ->name(
+                'settings.subscription.checkout.pix'
+            );
+
+        Route::get(
+            'configuracoes/plano/pix',
+            [MercadoPagoPixController::class, 'show']
+        )
+            ->middleware('verified')
+            ->name(
+                'settings.subscription.pix'
+            );
+
+        Route::post(
+            'configuracoes/plano/pix/verificar',
+            [MercadoPagoPixController::class, 'check']
+        )
+            ->middleware('verified')
+            ->name(
+                'settings.subscription.pix.check'
+            );
+
+
+        Route::delete(
+            'configuracoes/plano/assinatura/stripe',
+            [StripeSubscriptionController::class, 'destroy']
+        )
+            ->middleware('verified')
+            ->name(
+                'settings.subscription.cancel.stripe'
             );
 
 
