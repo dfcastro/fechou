@@ -11,442 +11,420 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Title('Plano e assinatura | Negozia')]
-    class extends Component {
-
-    #[Computed]
-    public function business(): ?Business
+    class extends Component
     {
-        return Auth::user()->business;
-    }
-
-    #[Computed]
-    public function subscription(): ?Subscription
-    {
-        if (!$this->business) {
-            return null;
+        #[Computed]
+        public function business(): ?Business
+        {
+            return Auth::user()->business;
         }
 
-        return app(SubscriptionService::class)
-            ->currentSubscription($this->business);
-    }
+        #[Computed]
+        public function subscription(): ?Subscription
+        {
+            if (! $this->business) {
+                return null;
+            }
 
-    #[Computed]
-    public function accessPlan(): ?Plan
-    {
-        if (!$this->business || !$this->subscription) {
-            return null;
+            return app(SubscriptionService::class)
+                ->currentSubscription($this->business);
         }
 
-        return app(SubscriptionService::class)
-            ->accessPlan($this->business);
-    }
+        #[Computed]
+        public function accessPlan(): ?Plan
+        {
+            if (! $this->business || ! $this->subscription) {
+                return null;
+            }
 
-    #[Computed]
-    public function quotesUsed(): int
-    {
-        if (!$this->business || !$this->subscription) {
-            return 0;
+            return app(SubscriptionService::class)
+                ->accessPlan($this->business);
         }
 
-        return app(SubscriptionService::class)
-            ->quotesUsed($this->business);
-    }
+        #[Computed]
+        public function quotesUsed(): int
+        {
+            if (! $this->business || ! $this->subscription) {
+                return 0;
+            }
 
-    #[Computed]
-    public function quotesRemaining(): ?int
-    {
-        if (!$this->business || !$this->subscription) {
-            return 0;
+            return app(SubscriptionService::class)
+                ->quotesUsed($this->business);
         }
 
-        return app(SubscriptionService::class)
-            ->quotesRemaining($this->business);
-    }
+        #[Computed]
+        public function quotesRemaining(): ?int
+        {
+            if (! $this->business || ! $this->subscription) {
+                return 0;
+            }
 
-    #[Computed]
-    public function usagePercentage(): int
-    {
-        $limit = $this->accessPlan?->quote_limit;
-
-        if (!$limit) {
-            return 0;
+            return app(SubscriptionService::class)
+                ->quotesRemaining($this->business);
         }
 
-        return (int) min(
-            100,
-            round(
-                ($this->quotesUsed / $limit) * 100
-            )
-        );
-    }
+        #[Computed]
+        public function usagePercentage(): int
+        {
+            $limit = $this->accessPlan?->quote_limit;
 
-    #[Computed]
-    public function freePlan(): ?Plan
-    {
-        return Plan::query()
-            ->where('slug', 'free')
-            ->where('is_active', true)
-            ->first();
-    }
+            if (! $limit) {
+                return 0;
+            }
 
-    #[Computed]
-    public function proPlan(): ?Plan
-    {
-        return Plan::query()
-            ->where('slug', 'pro')
-            ->where('is_active', true)
-            ->first();
-    }
-
-    #[Computed]
-    public function isFree(): bool
-    {
-        return $this->subscription?->plan?->slug === 'free';
-    }
-
-    #[Computed]
-    public function hasBillingAddress(): bool
-    {
-        if (!$this->business) {
-            return false;
-        }
-
-        $postalCode = preg_replace(
-            '/\\D+/',
-            '',
-            (string) $this->business->postal_code
-        );
-
-        return
-            trim(
-                (string) $this->business->address
-            ) !== ''
-
-            && trim(
-                (string) $this->business->address_number
-            ) !== ''
-
-            && trim(
-                (string) $this->business->province
-            ) !== ''
-
-            && strlen($postalCode) === 8;
-    }
-
-    #[Computed]
-    public function isPro(): bool
-    {
-        return $this->subscription?->plan?->slug === 'pro';
-    }
-
-    #[Computed]
-    public function hasProAccess(): bool
-    {
-        return $this->accessPlan?->slug === 'pro';
-    }
-
-    #[Computed]
-    public function isInGracePeriod(): bool
-    {
-        return $this->subscription?->isInGracePeriod() === true;
-    }
-
-    #[Computed]
-    public function isAccessSuspended(): bool
-    {
-        if (!$this->isPro || !$this->subscription) {
-            return false;
-        }
-
-        if ($this->subscription->access_suspended_at) {
-            return true;
-        }
-
-        return $this->subscription->status === 'past_due'
-            && !$this->isInGracePeriod;
-    }
-
-    #[Computed]
-    public function isCanceling(): bool
-    {
-        if (!$this->subscription) {
-            return false;
-        }
-
-        return $this->subscription->billing_status === 'canceling'
-            && $this->subscription->ends_at?->isFuture();
-    }
-
-
-    public function checkoutRouteName(): string
-    {
-        return config(
-            'services.payment.provider'
-        ) === 'stripe'
-            ? 'settings.subscription.checkout.stripe'
-            : $this->checkoutRouteName();
-    }
-
-    public function statusLabel(): string
-    {
-        if ($this->isCanceling) {
-            return 'Cancelamento agendado';
-        }
-
-        if ($this->isAccessSuspended) {
-            return 'Acesso Pro suspenso';
-        }
-
-        if ($this->isInGracePeriod) {
-            return 'Pagamento pendente';
-        }
-
-        return match ($this->subscription?->status) {
-            'trialing' => 'Período de teste',
-            'active' => 'Ativo',
-            'past_due' => 'Pagamento pendente',
-            'canceled' => 'Cancelado',
-            'expired' => 'Expirado',
-            default => 'Indisponível',
-        };
-    }
-
-    public function statusDescription(): string
-    {
-        if ($this->isCanceling) {
-            return 'Seu Pro permanece disponível até '
-                . $this->formatDate(
-                    $this->subscription?->ends_at
+            return (int) min(
+                100,
+                round(
+                    ($this->quotesUsed / $limit) * 100
                 )
-                . '.';
+            );
         }
 
-        if ($this->isAccessSuspended) {
-            return 'Os recursos Pro estão suspensos. '
-                . 'Sua conta continua com os recursos do plano Grátis.';
+        #[Computed]
+        public function freePlan(): ?Plan
+        {
+            return Plan::query()
+                ->where('slug', 'free')
+                ->where('is_active', true)
+                ->first();
         }
 
-        if ($this->isInGracePeriod) {
-            return 'Há uma cobrança pendente. '
-                . 'Seus recursos Pro seguem disponíveis até '
-                . $this->formatDate(
-                    $this->subscription?->grace_ends_at
-                )
-                . '.';
+        #[Computed]
+        public function proPlan(): ?Plan
+        {
+            return Plan::query()
+                ->where('slug', 'pro')
+                ->where('is_active', true)
+                ->first();
         }
 
-        if ($this->isFree) {
-            return 'Seu plano Grátis está ativo.';
+        #[Computed]
+        public function isFree(): bool
+        {
+            return $this->subscription?->plan?->slug === 'free';
         }
 
-        if (
-            $this->isPro
-            && $this->subscription
-                ?->payment_provider === 'mercadopago_pix'
-        ) {
-            return 'Seu Pro está ativo até '
-                . $this->formatDate(
-                    $this->subscription
-                        ?->current_period_ends_at
-                )
-                . '. O pagamento via Pix não possui renovação automática.';
+        #[Computed]
+        public function hasBillingAddress(): bool
+        {
+            if (! $this->business) {
+                return false;
+            }
+
+            $postalCode = preg_replace(
+                '/\\D+/',
+                '',
+                (string) $this->business->postal_code
+            );
+
+            return
+                trim(
+                    (string) $this->business->address
+                ) !== ''
+
+                && trim(
+                    (string) $this->business->address_number
+                ) !== ''
+
+                && trim(
+                    (string) $this->business->province
+                ) !== ''
+
+                && strlen($postalCode) === 8;
         }
 
-        return match ($this->subscription?->status) {
-            'trialing' =>
-                'Seu período de avaliação está em andamento.',
-
-            'active' =>
-                'Sua assinatura está ativa e disponível para uso.',
-
-            'past_due' =>
-                'Existe uma pendência relacionada à assinatura.',
-
-            'canceled' =>
-                'Esta assinatura foi cancelada.',
-
-            'expired' =>
-                'O período desta assinatura terminou.',
-
-            default =>
-                'Não foi possível identificar a situação da assinatura.',
-        };
-    }
-
-    public function statusClasses(): string
-    {
-        if ($this->isCanceling) {
-            return 'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-400';
+        #[Computed]
+        public function isPro(): bool
+        {
+            return $this->subscription?->plan?->slug === 'pro';
         }
 
-        if ($this->isAccessSuspended) {
-            return 'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400';
+        #[Computed]
+        public function hasProAccess(): bool
+        {
+            return $this->accessPlan?->slug === 'pro';
         }
 
-        if ($this->isInGracePeriod) {
-            return 'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400';
+        #[Computed]
+        public function isInGracePeriod(): bool
+        {
+            return $this->subscription?->isInGracePeriod() === true;
         }
 
-        return match ($this->subscription?->status) {
-            'active' =>
-                'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400',
+        #[Computed]
+        public function isAccessSuspended(): bool
+        {
+            if (! $this->isPro || ! $this->subscription) {
+                return false;
+            }
 
-            'trialing' =>
-                'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-400',
+            if ($this->subscription->access_suspended_at) {
+                return true;
+            }
 
-            'past_due' =>
-                'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400',
+            return $this->subscription->status === 'past_due'
+                && ! $this->isInGracePeriod;
+        }
 
-            'canceled',
-            'expired' =>
-                'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400',
+        #[Computed]
+        public function isCanceling(): bool
+        {
+            if (! $this->subscription) {
+                return false;
+            }
 
-            default =>
-                'bg-zinc-100 text-zinc-600 ring-zinc-500/20 dark:bg-zinc-800 dark:text-zinc-300',
-        };
-    }
+            return $this->subscription->billing_status === 'canceling'
+                && $this->subscription->ends_at?->isFuture();
+        }
 
-    public function billingAlertTitle(): string
-    {
-        if ($this->isAccessSuspended) {
-            return match ($this->subscription?->billing_status) {
-                'refunded' => 'Pagamento estornado',
-                'chargeback' => 'Pagamento contestado',
-                'reversed' => 'Pagamento revertido',
-                default => 'Acesso Pro suspenso',
+        public function checkoutRouteName(): string
+        {
+            return config(
+                'services.payment.provider'
+            ) === 'stripe'
+                ? 'settings.subscription.checkout.stripe'
+                : 'settings.subscription.checkout.asaas';
+        }
+
+        public function statusLabel(): string
+        {
+            if ($this->isCanceling) {
+                return 'Cancelamento agendado';
+            }
+
+            if ($this->isAccessSuspended) {
+                return 'Acesso Pro suspenso';
+            }
+
+            if ($this->isInGracePeriod) {
+                return 'Pagamento pendente';
+            }
+
+            return match ($this->subscription?->status) {
+                'trialing' => 'Período de teste',
+                'active' => 'Ativo',
+                'past_due' => 'Pagamento pendente',
+                'canceled' => 'Cancelado',
+                'expired' => 'Expirado',
+                default => 'Indisponível',
             };
         }
 
-        if ($this->isInGracePeriod) {
-            return 'Pagamento pendente';
+        public function statusDescription(): string
+        {
+            if ($this->isCanceling) {
+                return 'Seu Pro permanece disponível até '
+                    .$this->formatDate(
+                        $this->subscription?->ends_at
+                    )
+                    .'.';
+            }
+
+            if ($this->isAccessSuspended) {
+                return 'Os recursos Pro estão suspensos. '
+                    .'Sua conta continua com os recursos do plano Grátis.';
+            }
+
+            if ($this->isInGracePeriod) {
+                return 'Há uma cobrança pendente. '
+                    .'Seus recursos Pro seguem disponíveis até '
+                    .$this->formatDate(
+                        $this->subscription?->grace_ends_at
+                    )
+                    .'.';
+            }
+
+            if ($this->isFree) {
+                return 'Seu plano Grátis está ativo.';
+            }
+
+            if (
+                $this->isPro
+                && $this->subscription
+                    ?->payment_provider === 'mercadopago_pix'
+            ) {
+                return 'Seu Pro está ativo até '
+                    .$this->formatDate(
+                        $this->subscription
+                            ?->current_period_ends_at
+                    )
+                    .'. O pagamento via Pix não possui renovação automática.';
+            }
+
+            return match ($this->subscription?->status) {
+                'trialing' => 'Seu período de avaliação está em andamento.',
+
+                'active' => 'Sua assinatura está ativa e disponível para uso.',
+
+                'past_due' => 'Existe uma pendência relacionada à assinatura.',
+
+                'canceled' => 'Esta assinatura foi cancelada.',
+
+                'expired' => 'O período desta assinatura terminou.',
+
+                default => 'Não foi possível identificar a situação da assinatura.',
+            };
         }
 
-        if ($this->isCanceling) {
-            return 'Cancelamento agendado';
+        public function statusClasses(): string
+        {
+            if ($this->isCanceling) {
+                return 'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-400';
+            }
+
+            if ($this->isAccessSuspended) {
+                return 'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400';
+            }
+
+            if ($this->isInGracePeriod) {
+                return 'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400';
+            }
+
+            return match ($this->subscription?->status) {
+                'active' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400',
+
+                'trialing' => 'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-500/10 dark:text-blue-400',
+
+                'past_due' => 'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400',
+
+                'canceled',
+                'expired' => 'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400',
+
+                default => 'bg-zinc-100 text-zinc-600 ring-zinc-500/20 dark:bg-zinc-800 dark:text-zinc-300',
+            };
         }
 
-        return '';
-    }
+        public function billingAlertTitle(): string
+        {
+            if ($this->isAccessSuspended) {
+                return match ($this->subscription?->billing_status) {
+                    'refunded' => 'Pagamento estornado',
+                    'chargeback' => 'Pagamento contestado',
+                    'reversed' => 'Pagamento revertido',
+                    default => 'Acesso Pro suspenso',
+                };
+            }
 
-    public function billingAlertDescription(): string
-    {
-        if ($this->isAccessSuspended) {
-            return 'Regularize a situação da cobrança para recuperar '
-                . 'os recursos Pro. Seus dados e configurações Pro '
-                . 'continuam preservados.';
+            if ($this->isInGracePeriod) {
+                return 'Pagamento pendente';
+            }
+
+            if ($this->isCanceling) {
+                return 'Cancelamento agendado';
+            }
+
+            return '';
         }
 
-        if ($this->isInGracePeriod) {
-            return 'Regularize a cobrança até '
-                . $this->formatDate(
-                    $this->subscription?->grace_ends_at
+        public function billingAlertDescription(): string
+        {
+            if ($this->isAccessSuspended) {
+                return 'Regularize a situação da cobrança para recuperar '
+                    .'os recursos Pro. Seus dados e configurações Pro '
+                    .'continuam preservados.';
+            }
+
+            if ($this->isInGracePeriod) {
+                return 'Regularize a cobrança até '
+                    .$this->formatDate(
+                        $this->subscription?->grace_ends_at
+                    )
+                    .'. Até essa data, o Negozia Pro continua funcionando normalmente.';
+            }
+
+            if ($this->isCanceling) {
+                return 'Sua renovação foi cancelada, mas o Negozia Pro '
+                    .'continua disponível até '
+                    .$this->formatDate(
+                        $this->subscription?->ends_at
+                    )
+                    .'.';
+            }
+
+            return '';
+        }
+
+        public function planPriceLabel(): string
+        {
+            if (! $this->subscription) {
+                return '—';
+            }
+
+            $plan = $this->subscription->plan;
+
+            if ($plan->isFree()) {
+                return 'Sem custo';
+            }
+
+            return 'R$ '
+                .number_format(
+                    (float) $plan->price,
+                    2,
+                    ',',
+                    '.'
                 )
-                . '. Até essa data, o Negozia Pro continua funcionando normalmente.';
+                .' / mês';
         }
 
-        if ($this->isCanceling) {
-            return 'Sua renovação foi cancelada, mas o Negozia Pro '
-                . 'continua disponível até '
-                . $this->formatDate(
-                    $this->subscription?->ends_at
-                )
-                . '.';
-        }
+        public function proPriceLabel(): string
+        {
+            $price = $this->proPlan?->price ?? 29.90;
 
-        return '';
-    }
-
-    public function planPriceLabel(): string
-    {
-        if (!$this->subscription) {
-            return '—';
-        }
-
-        $plan = $this->subscription->plan;
-
-        if ($plan->isFree()) {
-            return 'Sem custo';
-        }
-
-        return 'R$ '
-            . number_format(
-                (float) $plan->price,
+            return number_format(
+                (float) $price,
                 2,
                 ',',
                 '.'
-            )
-            . ' / mês';
-    }
-
-    public function proPriceLabel(): string
-    {
-        $price = $this->proPlan?->price ?? 29.90;
-
-        return number_format(
-            (float) $price,
-            2,
-            ',',
-            '.'
-        );
-    }
-
-    public function featureLabel(string $feature): string
-    {
-        return match ($feature) {
-            'client_management' =>
-                'Gestão de clientes',
-
-            'public_quote_link' =>
-                'Link público para propostas',
-
-            'pdf_export' =>
-                'Exportação em PDF',
-
-            'whatsapp_sharing' =>
-                'Compartilhamento pelo WhatsApp',
-
-            'follow_up' =>
-                'Follow-up inteligente',
-
-            'notifications' =>
-                'Central de notificações',
-
-            'custom_branding' =>
-                'Logo e personalização da marca',
-
-            'advanced_reports' =>
-                'Relatórios avançados',
-
-            'team_members' =>
-                'Usuários e equipe',
-
-            default =>
-                Str::headline($feature),
-        };
-    }
-
-    public function formatDate($date): string
-    {
-        return $date
-            ? $date->format('d/m/Y')
-            : '—';
-    }
-
-    public function nextCycleDate(): string
-    {
-        $date = $this->subscription
-                ?->current_period_ends_at;
-
-        if (!$date) {
-            return '—';
+            );
         }
 
-        return $date
-            ->copy()
-            ->addSecond()
-            ->format('d/m/Y');
-    }
-};
+        public function featureLabel(string $feature): string
+        {
+            return match ($feature) {
+                'client_management' => 'Gestão de clientes',
+
+                'public_quote_link' => 'Link público para propostas',
+
+                'pdf_export' => 'Exportação em PDF',
+
+                'whatsapp_sharing' => 'Compartilhamento pelo WhatsApp',
+
+                'follow_up' => 'Follow-up inteligente',
+
+                'notifications' => 'Central de notificações',
+
+                'custom_branding' => 'Logo e personalização da marca',
+
+                'advanced_reports' => 'Relatórios avançados',
+
+                'team_members' => 'Usuários e equipe',
+
+                default => Str::headline($feature),
+            };
+        }
+
+        public function formatDate($date): string
+        {
+            return $date
+                ? $date->format('d/m/Y')
+                : '—';
+        }
+
+        public function nextCycleDate(): string
+        {
+            $date = $this->subscription
+                ?->current_period_ends_at;
+
+            if (! $date) {
+                return '—';
+            }
+
+            return $date
+                ->copy()
+                ->addSecond()
+                ->format('d/m/Y');
+        }
+    };
 ?>
 
 <div
