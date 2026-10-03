@@ -43,4 +43,26 @@ return [
         'webhook_token' => env('ASAAS_WEBHOOK_TOKEN'),
     ],
 
+
+    'payment' => [
+        'provider' => env(
+            'PAYMENT_PROVIDER',
+            'stripe'
+        ),
+    ],
+
+    'stripe' => [
+        'secret' => env(
+            'STRIPE_SECRET'
+        ),
+
+        'price_pro' => env(
+            'STRIPE_PRICE_PRO'
+        ),
+
+        'webhook_secret' => env(
+            'STRIPE_WEBHOOK_SECRET'
+        ),
+    ],
+
 ];

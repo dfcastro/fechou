@@ -3,6 +3,8 @@
 use App\Http\Controllers\AsaasCheckoutController;
 use App\Http\Controllers\AsaasSubscriptionController;
 use App\Http\Controllers\AsaasWebhookController;
+use App\Http\Controllers\StripeWebhookController;
+use App\Http\Controllers\StripeCheckoutController;
 use App\Http\Controllers\QuotePdfController;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +31,18 @@ Route::post(
     'webhooks/asaas',
     AsaasWebhookController::class
 )->name('webhooks.asaas');
+
+
+/*
+|--------------------------------------------------------------------------
+| Webhook Stripe
+|--------------------------------------------------------------------------
+*/
+
+Route::post(
+    'webhooks/stripe',
+    StripeWebhookController::class
+)->name('webhooks.stripe');
 
 
 /*
@@ -247,6 +261,16 @@ Route::middleware([
             ->name(
                 'settings.subscription.checkout.asaas'
             );
+
+        Route::post(
+            'configuracoes/plano/checkout/stripe',
+            [StripeCheckoutController::class, 'store']
+        )
+            ->middleware('verified')
+            ->name(
+                'settings.subscription.checkout.stripe'
+            );
+
 
         Route::delete(
             'configuracoes/plano/assinatura/asaas',

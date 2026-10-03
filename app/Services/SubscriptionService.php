@@ -123,7 +123,7 @@ class SubscriptionService
         }
 
         /*
-         * Somente assinaturas pagas do Asaas suspensas por cobrança
+         * Somente assinaturas pagas via gateway suspensas por cobrança
          * recebem fallback para o Grátis.
          *
          * Isso preserva o comportamento atual de trials expirados e
@@ -131,7 +131,11 @@ class SubscriptionService
          * recursos automaticamente.
          */
         if (
-            $subscription->payment_provider === 'asaas'
+            in_array(
+                $subscription->payment_provider,
+                ['asaas', 'stripe'],
+                true
+            )
             && $subscription->status === 'past_due'
             && !$subscription->plan->isFree()
         ) {

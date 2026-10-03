@@ -177,6 +177,16 @@ new #[Title('Plano e assinatura | Negozia')]
             && $this->subscription->ends_at?->isFuture();
     }
 
+
+    public function checkoutRouteName(): string
+    {
+        return config(
+            'services.payment.provider'
+        ) === 'stripe'
+            ? 'settings.subscription.checkout.stripe'
+            : $this->checkoutRouteName();
+    }
+
     public function statusLabel(): string
     {
         if ($this->isCanceling) {
@@ -557,7 +567,7 @@ new #[Title('Plano e assinatura | Negozia')]
                     dark:text-emerald-300
                 ">
             Checkout concluído. Estamos aguardando a confirmação
-            financeira do Asaas para liberar o Negozia Pro.
+            financeira do provedor de pagamento para liberar o Negozia Pro.
         </div>
 
     @elseif (request()->query('checkout') === 'canceled')
@@ -1334,7 +1344,7 @@ new #[Title('Plano e assinatura | Negozia')]
                             method="POST"
                             action="{{
                                 route(
-                                    'settings.subscription.checkout.asaas'
+                                    $this->checkoutRouteName()
                                 )
                             }}"
                             class="mt-5"
@@ -1376,7 +1386,7 @@ new #[Title('Plano e assinatura | Negozia')]
                                         text-[11px] leading-5
                                         text-zinc-400
                                     ">
-                            Pagamento seguro no ambiente do Asaas.
+                            Pagamento seguro em ambiente externo protegido.
                         </p>
 
                     </div>
@@ -1907,7 +1917,7 @@ new #[Title('Plano e assinatura | Negozia')]
                                 method="POST"
                                 action="{{
                                     route(
-                                        'settings.subscription.checkout.asaas'
+                                        $this->checkoutRouteName()
                                     )
                                 }}"
                             >
@@ -2093,7 +2103,7 @@ new #[Title('Plano e assinatura | Negozia')]
                 O uso de propostas é contabilizado por ciclo.
                 A criação do checkout não libera o Pro automaticamente:
                 a ativação será feita após a confirmação financeira
-                recebida do Asaas. Em caso de atraso, o Pro permanece
+                recebida do provedor de pagamento. Em caso de atraso, o Pro permanece
                 disponível durante o período de tolerância; os dados do
                 plano não são apagados se o acesso for suspenso.
             </p>
@@ -2174,7 +2184,7 @@ new #[Title('Plano e assinatura | Negozia')]
                     dark:text-zinc-400
                 ">
                     Precisamos destas informações para
-                    criar sua assinatura no Asaas.
+                    criar sua assinatura no provedor de pagamento.
                     Os dados também ficarão salvos na
                     sua empresa.
                 </p>
@@ -2183,7 +2193,7 @@ new #[Title('Plano e assinatura | Negozia')]
                     method="POST"
                     action="{{
                         route(
-                            'settings.subscription.checkout.asaas'
+                            $this->checkoutRouteName()
                         )
                     }}"
                     class="mt-5 space-y-4"
