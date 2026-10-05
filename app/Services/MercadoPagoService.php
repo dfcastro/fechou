@@ -7,6 +7,7 @@ use App\Models\Plan;
 use App\Models\Subscription;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -112,6 +113,435 @@ class MercadoPagoService
         }
 
         return $order;
+    }
+
+    public function createProSubscription(
+        Business $business,
+        Subscription $subscription,
+        string $cardTokenId
+    ): array {
+        $planId = trim(
+            (string) config(
+                'services.mercadopago.subscription_plan_pro'
+            )
+        );
+
+        if ($planId === '') {
+            throw new RuntimeException(
+                'O plano recorrente do Mercado Pago não está configurado.'
+            );
+        }
+
+        $cardTokenId = trim(
+            $cardTokenId
+        );
+
+        if ($cardTokenId === '') {
+            throw new RuntimeException(
+                'O token do cartão não foi informado.'
+            );
+        }
+
+        $payload = [
+            'preapproval_plan_id' =>
+                $planId,
+
+            'reason' =>
+                'Negozia Pro',
+
+            'external_reference' =>
+                'negozia-subscription-'
+                . $subscription->id,
+
+            'payer_email' =>
+                $this->payerEmail(
+                    $business
+                ),
+
+            'card_token_id' =>
+                $cardTokenId,
+
+            'back_url' =>
+                route(
+                    'settings.subscription'
+                ),
+
+            'status' =>
+                'authorized',
+        ];
+
+        $response = $this
+            ->request()
+            ->post(
+                '/preapproval',
+                $payload
+            );
+
+        $response->throw();
+
+        $preapproval =
+            $response->json();
+
+        if (
+            ! is_array($preapproval)
+            || empty($preapproval['id'])
+        ) {
+            throw new RuntimeException(
+                'O Mercado Pago não retornou uma assinatura válida.'
+            );
+        }
+
+        if (
+            data_get(
+                $preapproval,
+                'status'
+            ) !== 'authorized'
+        ) {
+            throw new RuntimeException(
+                'A assinatura não foi autorizada pelo Mercado Pago.'
+            );
+        }
+
+        return $preapproval;
+    }
+
+    public function getAuthorizedPayment(
+        string $authorizedPaymentId
+    ): array {
+        $response = $this
+            ->request()
+            ->get(
+                '/authorized_payments/'
+                . rawurlencode(
+                    $authorizedPaymentId
+                )
+            );
+
+        $response->throw();
+
+        $invoice =
+            $response->json();
+
+        if (
+            ! is_array($invoice)
+            || empty($invoice['id'])
+        ) {
+            throw new RuntimeException(
+                'Fatura recorrente do Mercado Pago inválida.'
+            );
+        }
+
+        return $invoice;
+    }
+
+    public function getPreapproval(
+        string $preapprovalId
+    ): array {
+        $response = $this
+            ->request()
+            ->get(
+                '/preapproval/'
+                . rawurlencode(
+                    $preapprovalId
+                )
+            );
+
+        $response->throw();
+
+        $preapproval =
+            $response->json();
+
+        if (
+            ! is_array($preapproval)
+            || empty($preapproval['id'])
+        ) {
+            throw new RuntimeException(
+                'Assinatura recorrente do Mercado Pago inválida.'
+            );
+        }
+
+        return $preapproval;
+    }
+
+    public function syncSubscriptionAuthorizedPayment(
+        Subscription $subscription,
+        array $invoice,
+        array $preapproval
+    ): bool {
+        $preapprovalId =
+            (string) data_get(
+                $invoice,
+                'preapproval_id',
+                ''
+            );
+
+        if (
+            $preapprovalId === ''
+            || $preapprovalId !==
+                (string) data_get(
+                    $preapproval,
+                    'id',
+                    ''
+                )
+            || $preapprovalId !==
+                (string) $subscription
+                    ->provider_subscription_id
+        ) {
+            throw new RuntimeException(
+                'A cobrança não pertence à assinatura informada.'
+            );
+        }
+
+        $expectedReference =
+            'negozia-subscription-'
+            . $subscription->id;
+
+        $reference =
+            (string) (
+                data_get(
+                    $invoice,
+                    'external_reference'
+                )
+                ?: data_get(
+                    $preapproval,
+                    'external_reference'
+                )
+            );
+
+        if (
+            $reference !== ''
+            && $reference !== $expectedReference
+        ) {
+            throw new RuntimeException(
+                'A referência da assinatura recorrente é inválida.'
+            );
+        }
+
+        $paymentId =
+            (string) data_get(
+                $invoice,
+                'payment.id',
+                ''
+            );
+
+        $paymentStatus =
+            (string) data_get(
+                $invoice,
+                'payment.status',
+                ''
+            );
+
+        $paymentDetail =
+            (string) data_get(
+                $invoice,
+                'payment.status_detail',
+                ''
+            );
+
+        $paymentStatusLabel =
+            $paymentDetail !== ''
+                ? $paymentStatus
+                    . '/'
+                    . $paymentDetail
+                : $paymentStatus;
+
+        $subscription->update([
+            'payment_provider' =>
+                'mercadopago_subscription',
+
+            'provider_subscription_id' =>
+                $preapprovalId,
+
+            'provider_checkout_status' =>
+                (string) data_get(
+                    $preapproval,
+                    'status',
+                    ''
+                ),
+
+            'provider_payment_id' =>
+                $paymentId !== ''
+                    ? $paymentId
+                    : $subscription
+                        ->provider_payment_id,
+
+            'provider_payment_status' =>
+                $paymentStatusLabel,
+        ]);
+
+        if (
+            $paymentStatus !== 'approved'
+            || $paymentDetail !== 'accredited'
+        ) {
+            return false;
+        }
+
+        /*
+         * Reprocessamento do mesmo pagamento não cria
+         * um novo período.
+         */
+        if (
+            $subscription->billing_status
+                === 'current'
+            && $subscription->plan?->slug
+                === 'pro'
+            && $subscription
+                ->provider_payment_id
+                === $paymentId
+        ) {
+            return true;
+        }
+
+        $proPlan = Plan::query()
+            ->where(
+                'slug',
+                'pro'
+            )
+            ->where(
+                'is_active',
+                true
+            )
+            ->firstOrFail();
+
+        $expectedAmount =
+            round(
+                (float) $proPlan->price,
+                2
+            );
+
+        $receivedAmount =
+            round(
+                (float) data_get(
+                    $invoice,
+                    'transaction_amount',
+                    0
+                ),
+                2
+            );
+
+        if (
+            abs(
+                $expectedAmount
+                - $receivedAmount
+            ) > 0.001
+        ) {
+            throw new RuntimeException(
+                'O valor da cobrança recorrente não corresponde ao Negozia Pro.'
+            );
+        }
+
+        $periodStart =
+            filled(
+                data_get(
+                    $invoice,
+                    'debit_date'
+                )
+            )
+                ? Carbon::parse(
+                    data_get(
+                        $invoice,
+                        'debit_date'
+                    )
+                )
+                : now();
+
+        $nextPaymentDate =
+            data_get(
+                $preapproval,
+                'next_payment_date'
+            );
+
+        if (! filled($nextPaymentDate)) {
+            throw new RuntimeException(
+                'O Mercado Pago não informou a próxima cobrança.'
+            );
+        }
+
+        $periodEnd =
+            Carbon::parse(
+                $nextPaymentDate
+            )->subSecond();
+
+        $wasPro =
+            $subscription
+                ->plan
+                ?->slug === 'pro';
+
+        $subscription->update([
+            'plan_id' =>
+                $proPlan->id,
+
+            'status' =>
+                'active',
+
+            'billing_status' =>
+                'current',
+
+            'starts_at' =>
+                $wasPro
+                    ? (
+                        $subscription->starts_at
+                        ?: $periodStart
+                    )
+                    : $periodStart,
+
+            'trial_ends_at' =>
+                null,
+
+            'current_period_starts_at' =>
+                $periodStart,
+
+            'current_period_ends_at' =>
+                $periodEnd,
+
+            /*
+             * Recorrência automática não possui
+             * término programado enquanto estiver ativa.
+             */
+            'ends_at' =>
+                null,
+
+            'canceled_at' =>
+                null,
+
+            'past_due_at' =>
+                null,
+
+            'grace_ends_at' =>
+                null,
+
+            'access_suspended_at' =>
+                null,
+
+            'last_payment_confirmed_at' =>
+                now(),
+
+            'provider_customer_id' =>
+                filled(
+                    data_get(
+                        $preapproval,
+                        'payer_id'
+                    )
+                )
+                    ? (string) data_get(
+                        $preapproval,
+                        'payer_id'
+                    )
+                    : $subscription
+                        ->provider_customer_id,
+
+            'provider_checkout_status' =>
+                (string) data_get(
+                    $preapproval,
+                    'status',
+                    'authorized'
+                ),
+
+            'provider_payment_status' =>
+                'approved/accredited',
+        ]);
+
+        return true;
     }
 
     public function getOrder(

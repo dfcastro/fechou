@@ -7,6 +7,7 @@ use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\StripeSubscriptionController;
 use App\Http\Controllers\MercadoPagoWebhookController;
 use App\Http\Controllers\MercadoPagoPixController;
+use App\Http\Controllers\MercadoPagoSubscriptionController;
 use App\Http\Controllers\StripeCheckoutController;
 use App\Http\Controllers\QuotePdfController;
 use Illuminate\Support\Facades\Route;
@@ -283,6 +284,26 @@ Route::middleware([
             ->middleware('verified')
             ->name(
                 'settings.subscription.checkout.stripe'
+            );
+
+
+        Route::get(
+            'configuracoes/plano/checkout/mercadopago',
+            [MercadoPagoSubscriptionController::class, 'create']
+        )
+            ->middleware('verified')
+            ->name(
+                'settings.subscription.checkout.mercadopago.form'
+            );
+
+
+        Route::post(
+            'configuracoes/plano/checkout/mercadopago',
+            [MercadoPagoSubscriptionController::class, 'store']
+        )
+            ->middleware('verified')
+            ->name(
+                'settings.subscription.checkout.mercadopago'
             );
 
 

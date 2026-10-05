@@ -81,8 +81,16 @@ return [
             'MERCADOPAGO_ACCESS_TOKEN'
         ),
 
+        'public_key' => env(
+            'MERCADOPAGO_PUBLIC_KEY'
+        ),
+
         'webhook_secret' => env(
             'MERCADOPAGO_WEBHOOK_SECRET'
+        ),
+
+        'subscription_plan_pro' => env(
+            'MERCADOPAGO_SUBSCRIPTION_PLAN_PRO'
         ),
     ],
 
