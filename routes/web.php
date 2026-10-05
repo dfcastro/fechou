@@ -336,6 +336,16 @@ Route::middleware([
 
 
         Route::delete(
+            'configuracoes/plano/assinatura/mercadopago',
+            [MercadoPagoSubscriptionController::class, 'destroy']
+        )
+            ->middleware('verified')
+            ->name(
+                'settings.subscription.cancel.mercadopago'
+            );
+
+
+        Route::delete(
             'configuracoes/plano/assinatura/stripe',
             [StripeSubscriptionController::class, 'destroy']
         )

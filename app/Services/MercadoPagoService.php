@@ -205,6 +205,87 @@ class MercadoPagoService
         return $preapproval;
     }
 
+    public function cancelSubscription(
+        Subscription $subscription
+    ): array {
+        $preapprovalId = trim(
+            (string) $subscription
+                ->provider_subscription_id
+        );
+
+        if ($preapprovalId === '') {
+            throw new RuntimeException(
+                'A assinatura do Mercado Pago não foi localizada.'
+            );
+        }
+
+        /*
+         * Consulta primeiro o estado atual para tornar
+         * o cancelamento idempotente.
+         *
+         * Isso também cobre o caso em que o Mercado Pago
+         * cancelou a assinatura antes de atualizarmos
+         * o estado local.
+         */
+        $current =
+            $this->getPreapproval(
+                $preapprovalId
+            );
+
+        if (
+            data_get(
+                $current,
+                'status'
+            ) === 'cancelled'
+        ) {
+            return $current;
+        }
+
+        $response = $this
+            ->request()
+            ->put(
+                '/preapproval/'
+                . rawurlencode(
+                    $preapprovalId
+                ),
+                [
+                    'status' =>
+                        'cancelled',
+                ]
+            );
+
+        $response->throw();
+
+        $preapproval =
+            $response->json();
+
+        if (
+            ! is_array($preapproval)
+            || (string) data_get(
+                $preapproval,
+                'id',
+                ''
+            ) !== $preapprovalId
+        ) {
+            throw new RuntimeException(
+                'O Mercado Pago não retornou uma assinatura válida.'
+            );
+        }
+
+        if (
+            data_get(
+                $preapproval,
+                'status'
+            ) !== 'cancelled'
+        ) {
+            throw new RuntimeException(
+                'O Mercado Pago não confirmou o cancelamento.'
+            );
+        }
+
+        return $preapproval;
+    }
+
     public function getAuthorizedPayment(
         string $authorizedPaymentId
     ): array {

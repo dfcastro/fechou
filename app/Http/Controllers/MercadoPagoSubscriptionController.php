@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use RuntimeException;
+use Throwable;
 
 class MercadoPagoSubscriptionController extends Controller
 {
@@ -291,4 +292,131 @@ class MercadoPagoSubscriptionController extends Controller
                 'Assinatura autorizada. Estamos aguardando a confirmação da primeira cobrança.'
             );
     }
+
+    public function destroy(
+        MercadoPagoService $mercadoPago,
+        SubscriptionService $subscriptions
+    ): RedirectResponse {
+        $business =
+            Auth::user()->business;
+
+        abort_unless(
+            $business,
+            403
+        );
+
+        $subscription =
+            $subscriptions
+                ->currentSubscription(
+                    $business
+                );
+
+        if (
+            ! $subscription
+            || $subscription
+                ->plan
+                ?->slug !== 'pro'
+        ) {
+            return back()->with(
+                'billing_error',
+                'Não foi possível localizar uma assinatura Pro ativa.'
+            );
+        }
+
+        if (
+            $subscription
+                ->billing_status === 'canceling'
+            && $subscription
+                ->ends_at
+                ?->isFuture()
+        ) {
+            return back()->with(
+                'billing_info',
+                'O cancelamento desta assinatura já está agendado.'
+            );
+        }
+
+        if (
+            $subscription
+                ->payment_provider
+                !== 'mercadopago_subscription'
+            || ! $subscription
+                ->provider_subscription_id
+        ) {
+            return back()->with(
+                'billing_error',
+                'Não foi possível localizar a assinatura recorrente.'
+            );
+        }
+
+        $periodEnd =
+            $subscription
+                ->current_period_ends_at;
+
+        if (
+            ! $periodEnd
+            || ! $periodEnd->isFuture()
+        ) {
+            return back()->with(
+                'billing_error',
+                'Não foi possível identificar o fim do período atual.'
+            );
+        }
+
+        try {
+            $preapproval =
+                $mercadoPago
+                    ->cancelSubscription(
+                        $subscription
+                    );
+        } catch (Throwable $exception) {
+            report(
+                $exception
+            );
+
+            return back()->with(
+                'billing_error',
+                'Não foi possível cancelar a renovação agora. Tente novamente.'
+            );
+        }
+
+        $subscription->update([
+            /*
+             * O Mercado Pago cancela novas cobranças,
+             * mas o período já pago continua disponível.
+             */
+            'status' =>
+                'active',
+
+            'billing_status' =>
+                'canceling',
+
+            'provider_checkout_status' =>
+                (string) data_get(
+                    $preapproval,
+                    'status',
+                    'cancelled'
+                ),
+
+            'canceled_at' =>
+                now(),
+
+            'ends_at' =>
+                $periodEnd,
+
+            'past_due_at' =>
+                null,
+
+            'grace_ends_at' =>
+                null,
+        ]);
+
+        return back()->with(
+            'billing_info',
+            'Renovação cancelada. O Negozia Pro continua disponível até '
+            . $periodEnd->format('d/m/Y')
+            . '.'
+        );
+    }
+
 }

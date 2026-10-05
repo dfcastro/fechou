@@ -186,6 +186,23 @@ new #[Title('Plano e assinatura | Negozia')]
                 : 'settings.subscription.checkout.asaas';
         }
 
+        public function cancelRouteName(): string
+        {
+            return match (
+                $this->subscription
+                    ?->payment_provider
+            ) {
+                'stripe' =>
+                    'settings.subscription.cancel.stripe',
+
+                'mercadopago_subscription' =>
+                    'settings.subscription.cancel.mercadopago',
+
+                default =>
+                    'settings.subscription.cancel.asaas',
+            };
+        }
+
         public function statusLabel(): string
         {
             if ($this->isCanceling) {
@@ -1770,6 +1787,7 @@ new #[Title('Plano e assinatura | Negozia')]
                                     [
                                         'asaas',
                                         'stripe',
+                                        'mercadopago_subscription',
                                     ],
                                     true
                                 )
@@ -1912,11 +1930,7 @@ new #[Title('Plano e assinatura | Negozia')]
                                                     method="POST"
                                                     action="{{
                                                         route(
-                                                            $this->subscription
-                                                                    ?->payment_provider
-                                                                === 'stripe'
-                                                                    ? 'settings.subscription.cancel.stripe'
-                                                                    : 'settings.subscription.cancel.asaas'
+                                                            $this->cancelRouteName()
                                                         )
                                                     }}"
                                                 >
