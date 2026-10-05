@@ -80,10 +80,15 @@ class MercadoPagoWebhookController extends Controller
             $request->json()->all();
 
         $topic =
-            (string) data_get(
-                $payload,
-                'type',
-                ''
+            (string) (
+                data_get(
+                    $payload,
+                    'type'
+                )
+                ?: $request->query(
+                    'type',
+                    ''
+                )
             );
 
         $eventType =
@@ -201,7 +206,60 @@ class MercadoPagoWebhookController extends Controller
                         ]);
                     }
                 );
-            } else {
+            } elseif (
+                $topic ===
+                    'subscription_preapproval'
+            ) {
+                $preapproval =
+                    $mercadoPago
+                        ->getPreapproval(
+                            $dataId
+                        );
+
+                $subscription =
+                    $this
+                        ->resolvePreapprovalSubscription(
+                            $preapproval
+                        );
+
+                DB::transaction(
+                    function () use (
+                        $webhookEvent,
+                        $eventType,
+                        $payload,
+                        $subscription,
+                        $preapproval,
+                        $mercadoPago
+                    ): void {
+                        $webhookEvent->update([
+                            'event_type' =>
+                                $eventType,
+
+                            'payload' =>
+                                $payload,
+                        ]);
+
+                        if ($subscription) {
+                            $mercadoPago
+                                ->syncSubscriptionPreapproval(
+                                    $subscription,
+                                    $preapproval
+                                );
+                        }
+
+                        $webhookEvent->update([
+                            'processed_at' =>
+                                now(),
+                        ]);
+                    }
+                );
+            } elseif (
+                $topic === 'order'
+                || str_starts_with(
+                    $eventType,
+                    'order.'
+                )
+            ) {
                 $order =
                     $mercadoPago
                         ->getOrder(
@@ -244,6 +302,30 @@ class MercadoPagoWebhookController extends Controller
                         ]);
                     }
                 );
+            } else {
+                /*
+                 * Tópicos que não pertencem aos fluxos
+                 * suportados pelo Negozia são reconhecidos
+                 * sem tentar tratá-los como Order Pix.
+                 */
+                DB::transaction(
+                    function () use (
+                        $webhookEvent,
+                        $eventType,
+                        $payload
+                    ): void {
+                        $webhookEvent->update([
+                            'event_type' =>
+                                $eventType,
+
+                            'payload' =>
+                                $payload,
+
+                            'processed_at' =>
+                                now(),
+                        ]);
+                    }
+                );
             }
         } catch (Throwable $exception) {
             report(
@@ -259,6 +341,51 @@ class MercadoPagoWebhookController extends Controller
         return response()->json([
             'received' => true,
         ]);
+    }
+
+    private function resolvePreapprovalSubscription(
+        array $preapproval
+    ): ?Subscription {
+        $externalReference =
+            (string) data_get(
+                $preapproval,
+                'external_reference',
+                ''
+            );
+
+        if (
+            preg_match(
+                '/^negozia-subscription-(\d+)$/',
+                $externalReference,
+                $matches
+            )
+        ) {
+            return Subscription::find(
+                (int) $matches[1]
+            );
+        }
+
+        $preapprovalId =
+            (string) data_get(
+                $preapproval,
+                'id',
+                ''
+            );
+
+        if ($preapprovalId === '') {
+            return null;
+        }
+
+        return Subscription::query()
+            ->where(
+                'payment_provider',
+                'mercadopago_subscription'
+            )
+            ->where(
+                'provider_subscription_id',
+                $preapprovalId
+            )
+            ->first();
     }
 
     private function resolveRecurringSubscription(

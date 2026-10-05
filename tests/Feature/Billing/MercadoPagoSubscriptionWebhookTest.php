@@ -192,6 +192,163 @@ class MercadoPagoSubscriptionWebhookTest extends TestCase
         );
     }
 
+    public function test_cancelled_preapproval_keeps_pro_until_paid_period_end(): void
+    {
+        $subscription =
+            $this->createSubscription();
+
+        $pro =
+            Plan::query()
+                ->where(
+                    'slug',
+                    'pro'
+                )
+                ->firstOrFail();
+
+        $periodEnd =
+            now()
+                ->addDays(20)
+                ->startOfSecond();
+
+        $subscription->update([
+            'plan_id' =>
+                $pro->id,
+
+            'status' =>
+                'active',
+
+            'billing_status' =>
+                'current',
+
+            'current_period_ends_at' =>
+                $periodEnd,
+        ]);
+
+        $preapprovalId =
+            '9f8d4e3a9b0b4efd93ea1e669ab5e000';
+
+        Http::fake([
+            'https://api.mercadopago.com/preapproval/'
+                .$preapprovalId =>
+                Http::response(
+                    [
+                        'id' =>
+                            $preapprovalId,
+
+                        'payer_id' =>
+                            123456789,
+
+                        'external_reference' =>
+                            'negozia-subscription-'
+                            .$subscription->id,
+
+                        'status' =>
+                            'cancelled',
+                    ],
+                    200
+                ),
+        ]);
+
+        $requestId =
+            'request-preapproval-cancelled';
+
+        $timestamp =
+            '1791230000';
+
+        $manifest =
+            'id:'
+            .$preapprovalId
+            .';request-id:'
+            .$requestId
+            .';ts:'
+            .$timestamp
+            .';';
+
+        $signature =
+            'ts='
+            .$timestamp
+            .',v1='
+            .hash_hmac(
+                'sha256',
+                $manifest,
+                'TEST_WEBHOOK_SECRET'
+            );
+
+        $this
+            ->postJson(
+                route(
+                    'webhooks.mercadopago'
+                )
+                .'?data.id='
+                .$preapprovalId
+                .'&type=subscription_preapproval',
+                [
+                    'action' =>
+                        'updated',
+
+                    'type' =>
+                        'subscription_preapproval',
+
+                    'data' => [
+                        'id' =>
+                            $preapprovalId,
+                    ],
+                ],
+                [
+                    'X-Signature' =>
+                        $signature,
+
+                    'X-Request-Id' =>
+                        $requestId,
+                ]
+            )
+            ->assertOk()
+            ->assertJson([
+                'received' => true,
+            ]);
+
+        $subscription->refresh();
+
+        $this->assertSame(
+            'pro',
+            $subscription->plan->slug
+        );
+
+        $this->assertSame(
+            'active',
+            $subscription->status
+        );
+
+        $this->assertSame(
+            'canceling',
+            $subscription->billing_status
+        );
+
+        $this->assertSame(
+            'cancelled',
+            $subscription->provider_checkout_status
+        );
+
+        $this->assertTrue(
+            $subscription
+                ->ends_at
+                ->isSameSecond(
+                    $periodEnd
+                )
+        );
+
+        Http::assertSentCount(1);
+
+        Http::assertSent(
+            fn ($request) =>
+                $request->method() === 'GET'
+                && $request->url()
+                    === 'https://api.mercadopago.com/preapproval/'
+                    .$preapprovalId
+        );
+    }
+
+
     private function createSubscription(): Subscription
     {
         $user =

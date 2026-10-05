@@ -286,6 +286,154 @@ class MercadoPagoService
         return $preapproval;
     }
 
+    public function syncSubscriptionPreapproval(
+        Subscription $subscription,
+        array $preapproval
+    ): void {
+        $preapprovalId =
+            (string) data_get(
+                $preapproval,
+                'id',
+                ''
+            );
+
+        if (
+            $preapprovalId === ''
+            || $preapprovalId !==
+                (string) $subscription
+                    ->provider_subscription_id
+        ) {
+            throw new RuntimeException(
+                'A assinatura recebida não corresponde à assinatura local.'
+            );
+        }
+
+        $reference =
+            (string) data_get(
+                $preapproval,
+                'external_reference',
+                ''
+            );
+
+        $expectedReference =
+            'negozia-subscription-'
+            . $subscription->id;
+
+        if (
+            $reference !== ''
+            && $reference !== $expectedReference
+        ) {
+            throw new RuntimeException(
+                'A referência da assinatura recorrente é inválida.'
+            );
+        }
+
+        $status =
+            (string) data_get(
+                $preapproval,
+                'status',
+                ''
+            );
+
+        $updates = [
+            'payment_provider' =>
+                'mercadopago_subscription',
+
+            'provider_checkout_status' =>
+                $status,
+
+            'provider_customer_id' =>
+                filled(
+                    data_get(
+                        $preapproval,
+                        'payer_id'
+                    )
+                )
+                    ? (string) data_get(
+                        $preapproval,
+                        'payer_id'
+                    )
+                    : $subscription
+                        ->provider_customer_id,
+        ];
+
+        if ($status === 'cancelled') {
+            /*
+             * Uma assinatura que nunca ativou o Pro
+             * continua sendo uma assinatura Grátis válida.
+             */
+            if (
+                $subscription
+                    ->plan
+                    ?->isFree()
+            ) {
+                $updates['status'] =
+                    'active';
+
+                $updates['billing_status'] =
+                    'canceled';
+
+                $updates['canceled_at'] =
+                    $subscription
+                        ->canceled_at
+                    ?? now();
+
+                $updates['ends_at'] =
+                    null;
+
+                $updates['access_suspended_at'] =
+                    null;
+            } else {
+                $periodEnd =
+                    $subscription
+                        ->current_period_ends_at;
+
+                $canKeepAccess =
+                    $periodEnd
+                    && $periodEnd->isFuture()
+                    && $subscription
+                        ->access_suspended_at === null;
+
+                if ($canKeepAccess) {
+                    $updates['status'] =
+                        'active';
+
+                    $updates['billing_status'] =
+                        'canceling';
+
+                    $updates['canceled_at'] =
+                        $subscription
+                            ->canceled_at
+                        ?? now();
+
+                    $updates['ends_at'] =
+                        $periodEnd;
+                } else {
+                    $updates['status'] =
+                        'canceled';
+
+                    $updates['billing_status'] =
+                        'canceled';
+
+                    $updates['canceled_at'] =
+                        $subscription
+                            ->canceled_at
+                        ?? now();
+
+                    $updates['ends_at'] =
+                        now();
+
+                    $updates['access_suspended_at'] =
+                        now();
+                }
+            }
+        }
+
+        $subscription->update(
+            $updates
+        );
+    }
+
     public function getAuthorizedPayment(
         string $authorizedPaymentId
     ): array {
