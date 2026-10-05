@@ -454,6 +454,89 @@ class MercadoPagoService
             $paymentStatus !== 'approved'
             || $paymentDetail !== 'accredited'
         ) {
+            /*
+             * Primeira cobrança recusada:
+             * o cliente ainda está no plano Grátis.
+             *
+             * Guardamos a falha, mas não criamos
+             * past_due para uma assinatura que nunca
+             * chegou a ativar o Pro.
+             */
+            if (
+                $subscription
+                    ->plan
+                    ?->isFree()
+            ) {
+                $subscription->update([
+                    'billing_status' =>
+                        'payment_failed',
+                ]);
+
+                return false;
+            }
+
+            /*
+             * Em renovações, o Mercado Pago pode colocar
+             * a fatura em recycling e tentar cobrar
+             * novamente.
+             *
+             * O Negozia concede 3 dias de carência.
+             * Uma cobrança aprovada posteriormente limpa
+             * estes campos no fluxo normal de aprovação.
+             */
+            $invoiceStatus =
+                (string) data_get(
+                    $invoice,
+                    'status',
+                    ''
+                );
+
+            $isFailedRenewal =
+                $paymentStatus === 'rejected'
+                || in_array(
+                    $invoiceStatus,
+                    [
+                        'recycling',
+                        'processed',
+                    ],
+                    true
+                );
+
+            if ($isFailedRenewal) {
+                $pastDueAt =
+                    $subscription
+                        ->past_due_at
+                    ?? now();
+
+                $subscription->update([
+                    'status' =>
+                        'past_due',
+
+                    'billing_status' =>
+                        'overdue',
+
+                    'past_due_at' =>
+                        $pastDueAt,
+
+                    'grace_ends_at' =>
+                        $pastDueAt
+                            ->copy()
+                            ->addDays(3),
+
+                    'access_suspended_at' =>
+                        null,
+                ]);
+            } else {
+                /*
+                 * waiting for gateway / in_process:
+                 * ainda não consideramos inadimplência.
+                 */
+                $subscription->update([
+                    'billing_status' =>
+                        'processing',
+                ]);
+            }
+
             return false;
         }
 
