@@ -274,7 +274,7 @@ class QuoteAuthorizationTest extends TestCase
             ->actingAs($user)
             ->get(
                 route(
-                    'quotes.pdf.preview',
+                    'quotes.pdf.preview.file',
                     $quote
                 )
             )
@@ -332,7 +332,7 @@ class QuoteAuthorizationTest extends TestCase
             ->actingAs($user)
             ->get(
                 route(
-                    'quotes.pdf.preview',
+                    'quotes.pdf.preview.file',
                     $quote
                 )
             )
