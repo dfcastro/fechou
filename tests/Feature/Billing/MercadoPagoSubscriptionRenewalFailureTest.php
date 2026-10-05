@@ -197,6 +197,293 @@ class MercadoPagoSubscriptionRenewalFailureTest extends TestCase
     }
 
 
+    public function test_approved_retry_recovers_subscription_from_grace_period(): void
+    {
+        [$subscription] =
+            $this->createProSubscription();
+
+        $service =
+            app(
+                MercadoPagoService::class
+            );
+
+        $preapproval = [
+            'id' =>
+                'preapproval_test_123',
+
+            'status' =>
+                'authorized',
+
+            'external_reference' =>
+                'negozia-subscription-'
+                .$subscription->id,
+
+            'next_payment_date' =>
+                now()
+                    ->addMonth()
+                    ->toIso8601String(),
+        ];
+
+        /*
+         * Primeira tentativa: recusada.
+         */
+        $service
+            ->syncSubscriptionAuthorizedPayment(
+                $subscription,
+                [
+                    'id' =>
+                        7000000001,
+
+                    'preapproval_id' =>
+                        'preapproval_test_123',
+
+                    'external_reference' =>
+                        'negozia-subscription-'
+                        .$subscription->id,
+
+                    'transaction_amount' =>
+                        29.90,
+
+                    'status' =>
+                        'recycling',
+
+                    'payment' => [
+                        'id' =>
+                            180000000001,
+
+                        'status' =>
+                            'rejected',
+
+                        'status_detail' =>
+                            'cc_rejected_insufficient_amount',
+                    ],
+                ],
+                $preapproval
+            );
+
+        $subscription->refresh();
+
+        $this->assertSame(
+            'past_due',
+            $subscription->status
+        );
+
+        $this->assertSame(
+            'overdue',
+            $subscription->billing_status
+        );
+
+        $this->assertNotNull(
+            $subscription->grace_ends_at
+        );
+
+        /*
+         * Nova tentativa da mesma renovação:
+         * pagamento aprovado.
+         */
+        $service
+            ->syncSubscriptionAuthorizedPayment(
+                $subscription,
+                [
+                    'id' =>
+                        7000000001,
+
+                    'preapproval_id' =>
+                        'preapproval_test_123',
+
+                    'external_reference' =>
+                        'negozia-subscription-'
+                        .$subscription->id,
+
+                    'transaction_amount' =>
+                        29.90,
+
+                    'debit_date' =>
+                        now()->toIso8601String(),
+
+                    'status' =>
+                        'processed',
+
+                    'payment' => [
+                        'id' =>
+                            180000000002,
+
+                        'status' =>
+                            'approved',
+
+                        'status_detail' =>
+                            'accredited',
+                    ],
+                ],
+                $preapproval
+            );
+
+        $subscription->refresh();
+
+        $this->assertSame(
+            'pro',
+            $subscription->plan->slug
+        );
+
+        $this->assertSame(
+            'active',
+            $subscription->status
+        );
+
+        $this->assertSame(
+            'current',
+            $subscription->billing_status
+        );
+
+        $this->assertSame(
+            '180000000002',
+            $subscription->provider_payment_id
+        );
+
+        $this->assertSame(
+            'approved/accredited',
+            $subscription->provider_payment_status
+        );
+
+        $this->assertNull(
+            $subscription->past_due_at
+        );
+
+        $this->assertNull(
+            $subscription->grace_ends_at
+        );
+
+        $this->assertNull(
+            $subscription->access_suspended_at
+        );
+    }
+
+
+    public function test_approved_monthly_renewal_advances_billing_period(): void
+    {
+        [$subscription] =
+            $this->createProSubscription();
+
+        $subscription->update([
+            'provider_payment_id' =>
+                'previous_payment',
+
+            'provider_payment_status' =>
+                'approved/accredited',
+
+            'current_period_starts_at' =>
+                \Illuminate\Support\Carbon::parse(
+                    '2026-09-05 18:30:42'
+                ),
+
+            'current_period_ends_at' =>
+                \Illuminate\Support\Carbon::parse(
+                    '2026-10-05 18:30:41'
+                ),
+        ]);
+
+        $service =
+            app(
+                MercadoPagoService::class
+            );
+
+        $service
+            ->syncSubscriptionAuthorizedPayment(
+                $subscription,
+                [
+                    'id' =>
+                        7000000002,
+
+                    'preapproval_id' =>
+                        'preapproval_test_123',
+
+                    'external_reference' =>
+                        'negozia-subscription-'
+                        .$subscription->id,
+
+                    'transaction_amount' =>
+                        29.90,
+
+                    'debit_date' =>
+                        '2026-10-05T18:30:42-04:00',
+
+                    'status' =>
+                        'processed',
+
+                    'payment' => [
+                        'id' =>
+                            180000000003,
+
+                        'status' =>
+                            'approved',
+
+                        'status_detail' =>
+                            'accredited',
+                    ],
+                ],
+                [
+                    'id' =>
+                        'preapproval_test_123',
+
+                    'status' =>
+                        'authorized',
+
+                    'external_reference' =>
+                        'negozia-subscription-'
+                        .$subscription->id,
+
+                    'next_payment_date' =>
+                        '2026-11-05T18:30:42-04:00',
+                ]
+            );
+
+        $subscription->refresh();
+
+        $this->assertSame(
+            'current',
+            $subscription->billing_status
+        );
+
+        $this->assertSame(
+            '180000000003',
+            $subscription->provider_payment_id
+        );
+
+        $this->assertSame(
+            'approved/accredited',
+            $subscription->provider_payment_status
+        );
+
+        $this->assertSame(
+            '2026-10-05 22:30:42',
+            $subscription
+                ->current_period_starts_at
+                ->utc()
+                ->format('Y-m-d H:i:s')
+        );
+
+        $this->assertSame(
+            '2026-11-05 22:30:41',
+            $subscription
+                ->current_period_ends_at
+                ->utc()
+                ->format('Y-m-d H:i:s')
+        );
+
+        $this->assertNull(
+            $subscription->past_due_at
+        );
+
+        $this->assertNull(
+            $subscription->grace_ends_at
+        );
+
+        $this->assertNull(
+            $subscription->access_suspended_at
+        );
+    }
+
+
     private function createProSubscription(): array
     {
         $user =

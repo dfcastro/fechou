@@ -426,6 +426,26 @@ class MercadoPagoService
                     . $paymentDetail
                 : $paymentStatus;
 
+        /*
+         * Precisamos descobrir se este pagamento já foi
+         * aplicado ANTES de sobrescrever provider_payment_id.
+         *
+         * Caso contrário, qualquer nova renovação aprovada
+         * pareceria ser um reprocessamento do mesmo pagamento.
+         */
+        $alreadyAppliedPayment =
+            $paymentId !== ''
+            && $subscription
+                ->provider_payment_id === $paymentId
+            && $subscription
+                ->billing_status === 'current'
+            && $subscription
+                ->payment_provider
+                === 'mercadopago_subscription'
+            && $subscription
+                ->plan
+                ?->slug === 'pro';
+
         $subscription->update([
             'payment_provider' =>
                 'mercadopago_subscription',
@@ -544,15 +564,7 @@ class MercadoPagoService
          * Reprocessamento do mesmo pagamento não cria
          * um novo período.
          */
-        if (
-            $subscription->billing_status
-                === 'current'
-            && $subscription->plan?->slug
-                === 'pro'
-            && $subscription
-                ->provider_payment_id
-                === $paymentId
-        ) {
+        if ($alreadyAppliedPayment) {
             return true;
         }
 
@@ -606,7 +618,7 @@ class MercadoPagoService
                         $invoice,
                         'debit_date'
                     )
-                )
+                )->utc()
                 : now();
 
         $nextPaymentDate =
@@ -624,7 +636,9 @@ class MercadoPagoService
         $periodEnd =
             Carbon::parse(
                 $nextPaymentDate
-            )->subSecond();
+            )
+                ->utc()
+                ->subSecond();
 
         $wasPro =
             $subscription
