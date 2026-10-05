@@ -181,6 +181,11 @@ Route::middleware([
         )->name('quotes.pdf.preview');
 
         Route::get(
+            'orcamentos/{quote}/pdf/visualizar/arquivo',
+            [QuotePdfController::class, 'previewFile']
+        )->name('quotes.pdf.preview.file');
+
+        Route::get(
             'orcamentos/{quote}/pdf',
             [QuotePdfController::class, 'download']
         )->name('quotes.pdf');
