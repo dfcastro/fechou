@@ -79,16 +79,25 @@ class MercadoPagoWebhookController extends Controller
         $payload =
             $request->json()->all();
 
+        $topic =
+            (string) (
+                data_get(
+                    $payload,
+                    'type'
+                )
+                ?: $request->query(
+                    'type',
+                    ''
+                )
+            );
+
         $eventType =
             (string) (
                 data_get(
                     $payload,
                     'action'
                 )
-                ?: data_get(
-                    $payload,
-                    'type'
-                )
+                ?: $topic
                 ?: 'order'
             );
 
@@ -128,45 +137,196 @@ class MercadoPagoWebhookController extends Controller
         }
 
         try {
-            $order =
-                $mercadoPago
-                    ->getOrder(
-                        $dataId
+            if (
+                $topic ===
+                    'subscription_authorized_payment'
+            ) {
+                $invoice =
+                    $mercadoPago
+                        ->getAuthorizedPayment(
+                            $dataId
+                        );
+
+                $preapprovalId =
+                    (string) data_get(
+                        $invoice,
+                        'preapproval_id',
+                        ''
                     );
 
-            $subscription =
-                $this->resolveSubscription(
-                    $order
-                );
-
-            DB::transaction(
-                function () use (
-                    $webhookEvent,
-                    $eventType,
-                    $payload,
-                    $subscription,
-                    $order,
-                    $mercadoPago
-                ): void {
-                    $webhookEvent->update([
-                        'event_type' => $eventType,
-
-                        'payload' => $payload,
-                    ]);
-
-                    if ($subscription) {
-                        $mercadoPago
-                            ->syncPixOrder(
-                                $subscription,
-                                $order
-                            );
-                    }
-
-                    $webhookEvent->update([
-                        'processed_at' => now(),
-                    ]);
+                if ($preapprovalId === '') {
+                    throw new \RuntimeException(
+                        'Preapproval ID not found.'
+                    );
                 }
-            );
+
+                $preapproval =
+                    $mercadoPago
+                        ->getPreapproval(
+                            $preapprovalId
+                        );
+
+                $subscription =
+                    $this
+                        ->resolveRecurringSubscription(
+                            $invoice,
+                            $preapproval
+                        );
+
+                DB::transaction(
+                    function () use (
+                        $webhookEvent,
+                        $eventType,
+                        $payload,
+                        $subscription,
+                        $invoice,
+                        $preapproval,
+                        $mercadoPago
+                    ): void {
+                        $webhookEvent->update([
+                            'event_type' =>
+                                $eventType,
+
+                            'payload' =>
+                                $payload,
+                        ]);
+
+                        if ($subscription) {
+                            $mercadoPago
+                                ->syncSubscriptionAuthorizedPayment(
+                                    $subscription,
+                                    $invoice,
+                                    $preapproval
+                                );
+                        }
+
+                        $webhookEvent->update([
+                            'processed_at' =>
+                                now(),
+                        ]);
+                    }
+                );
+            } elseif (
+                $topic ===
+                    'subscription_preapproval'
+            ) {
+                $preapproval =
+                    $mercadoPago
+                        ->getPreapproval(
+                            $dataId
+                        );
+
+                $subscription =
+                    $this
+                        ->resolvePreapprovalSubscription(
+                            $preapproval
+                        );
+
+                DB::transaction(
+                    function () use (
+                        $webhookEvent,
+                        $eventType,
+                        $payload,
+                        $subscription,
+                        $preapproval,
+                        $mercadoPago
+                    ): void {
+                        $webhookEvent->update([
+                            'event_type' =>
+                                $eventType,
+
+                            'payload' =>
+                                $payload,
+                        ]);
+
+                        if ($subscription) {
+                            $mercadoPago
+                                ->syncSubscriptionPreapproval(
+                                    $subscription,
+                                    $preapproval
+                                );
+                        }
+
+                        $webhookEvent->update([
+                            'processed_at' =>
+                                now(),
+                        ]);
+                    }
+                );
+            } elseif (
+                $topic === 'order'
+                || str_starts_with(
+                    $eventType,
+                    'order.'
+                )
+            ) {
+                $order =
+                    $mercadoPago
+                        ->getOrder(
+                            $dataId
+                        );
+
+                $subscription =
+                    $this->resolveSubscription(
+                        $order
+                    );
+
+                DB::transaction(
+                    function () use (
+                        $webhookEvent,
+                        $eventType,
+                        $payload,
+                        $subscription,
+                        $order,
+                        $mercadoPago
+                    ): void {
+                        $webhookEvent->update([
+                            'event_type' =>
+                                $eventType,
+
+                            'payload' =>
+                                $payload,
+                        ]);
+
+                        if ($subscription) {
+                            $mercadoPago
+                                ->syncPixOrder(
+                                    $subscription,
+                                    $order
+                                );
+                        }
+
+                        $webhookEvent->update([
+                            'processed_at' =>
+                                now(),
+                        ]);
+                    }
+                );
+            } else {
+                /*
+                 * Tópicos que não pertencem aos fluxos
+                 * suportados pelo Negozia são reconhecidos
+                 * sem tentar tratá-los como Order Pix.
+                 */
+                DB::transaction(
+                    function () use (
+                        $webhookEvent,
+                        $eventType,
+                        $payload
+                    ): void {
+                        $webhookEvent->update([
+                            'event_type' =>
+                                $eventType,
+
+                            'payload' =>
+                                $payload,
+
+                            'processed_at' =>
+                                now(),
+                        ]);
+                    }
+                );
+            }
         } catch (Throwable $exception) {
             report(
                 $exception
@@ -181,6 +341,102 @@ class MercadoPagoWebhookController extends Controller
         return response()->json([
             'received' => true,
         ]);
+    }
+
+    private function resolvePreapprovalSubscription(
+        array $preapproval
+    ): ?Subscription {
+        $externalReference =
+            (string) data_get(
+                $preapproval,
+                'external_reference',
+                ''
+            );
+
+        if (
+            preg_match(
+                '/^negozia-subscription-(\d+)$/',
+                $externalReference,
+                $matches
+            )
+        ) {
+            return Subscription::find(
+                (int) $matches[1]
+            );
+        }
+
+        $preapprovalId =
+            (string) data_get(
+                $preapproval,
+                'id',
+                ''
+            );
+
+        if ($preapprovalId === '') {
+            return null;
+        }
+
+        return Subscription::query()
+            ->where(
+                'payment_provider',
+                'mercadopago_subscription'
+            )
+            ->where(
+                'provider_subscription_id',
+                $preapprovalId
+            )
+            ->first();
+    }
+
+    private function resolveRecurringSubscription(
+        array $invoice,
+        array $preapproval
+    ): ?Subscription {
+        $externalReference =
+            (string) (
+                data_get(
+                    $invoice,
+                    'external_reference'
+                )
+                ?: data_get(
+                    $preapproval,
+                    'external_reference'
+                )
+            );
+
+        if (
+            preg_match(
+                '/^negozia-subscription-(\d+)$/',
+                $externalReference,
+                $matches
+            )
+        ) {
+            return Subscription::find(
+                (int) $matches[1]
+            );
+        }
+
+        $preapprovalId =
+            (string) data_get(
+                $invoice,
+                'preapproval_id',
+                ''
+            );
+
+        if ($preapprovalId === '') {
+            return null;
+        }
+
+        return Subscription::query()
+            ->where(
+                'payment_provider',
+                'mercadopago_subscription'
+            )
+            ->where(
+                'provider_subscription_id',
+                $preapprovalId
+            )
+            ->first();
     }
 
     private function resolveSubscription(

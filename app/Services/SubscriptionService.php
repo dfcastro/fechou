@@ -166,7 +166,11 @@ class SubscriptionService
         if (
             in_array(
                 $subscription->payment_provider,
-                ['asaas', 'stripe'],
+                [
+                    'asaas',
+                    'stripe',
+                    'mercadopago_subscription',
+                ],
                 true
             )
             && $subscription->status === 'past_due'

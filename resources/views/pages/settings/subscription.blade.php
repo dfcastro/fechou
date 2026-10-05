@@ -177,13 +177,46 @@ new #[Title('Plano e assinatura | Negozia')]
                 && $this->subscription->ends_at?->isFuture();
         }
 
-        public function checkoutRouteName(): string
+        public function usesMercadoPagoCheckout(): bool
         {
             return config(
                 'services.payment.provider'
-            ) === 'stripe'
-                ? 'settings.subscription.checkout.stripe'
-                : 'settings.subscription.checkout.asaas';
+            ) === 'mercadopago';
+        }
+
+        public function checkoutRouteName(): string
+        {
+            return match (
+                config(
+                    'services.payment.provider'
+                )
+            ) {
+                'stripe' =>
+                    'settings.subscription.checkout.stripe',
+
+                'mercadopago' =>
+                    'settings.subscription.checkout.mercadopago.form',
+
+                default =>
+                    'settings.subscription.checkout.asaas',
+            };
+        }
+
+        public function cancelRouteName(): string
+        {
+            return match (
+                $this->subscription
+                    ?->payment_provider
+            ) {
+                'stripe' =>
+                    'settings.subscription.cancel.stripe',
+
+                'mercadopago_subscription' =>
+                    'settings.subscription.cancel.mercadopago',
+
+                default =>
+                    'settings.subscription.cancel.asaas',
+            };
         }
 
         public function statusLabel(): string
@@ -1770,6 +1803,7 @@ new #[Title('Plano e assinatura | Negozia')]
                                     [
                                         'asaas',
                                         'stripe',
+                                        'mercadopago_subscription',
                                     ],
                                     true
                                 )
@@ -1912,11 +1946,7 @@ new #[Title('Plano e assinatura | Negozia')]
                                                     method="POST"
                                                     action="{{
                                                         route(
-                                                            $this->subscription
-                                                                    ?->payment_provider
-                                                                === 'stripe'
-                                                                    ? 'settings.subscription.cancel.stripe'
-                                                                    : 'settings.subscription.cancel.asaas'
+                                                            $this->cancelRouteName()
                                                         )
                                                     }}"
                                                 >
@@ -1952,14 +1982,20 @@ new #[Title('Plano e assinatura | Negozia')]
                         @else
 
                             <form
-                                method="POST"
+                                method="{{
+                                    $this->usesMercadoPagoCheckout()
+                                        ? 'GET'
+                                        : 'POST'
+                                }}"
                                 action="{{
                                     route(
                                         $this->checkoutRouteName()
                                     )
                                 }}"
                             >
-                                @csrf
+                                @unless ($this->usesMercadoPagoCheckout())
+                                    @csrf
+                                @endunless
 
                                 <button
                                     type="submit"
