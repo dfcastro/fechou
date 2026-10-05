@@ -16,6 +16,22 @@ class QuotePdfController extends Controller
     {
         $quoteModel = $this->findQuote($quote);
 
+        return view(
+            'pdf.preview',
+            [
+                'quote' => $quoteModel,
+                'pdfUrl' => route(
+                    'quotes.pdf.preview.file',
+                    $quoteModel->id
+                ),
+            ]
+        );
+    }
+
+    public function previewFile(int $quote)
+    {
+        $quoteModel = $this->findQuote($quote);
+
         $pdf = $this->makePdf($quoteModel);
 
         return $pdf->stream(
