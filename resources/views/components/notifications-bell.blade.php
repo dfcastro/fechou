@@ -1360,60 +1360,146 @@ new class extends Component {
 
                                                 @elseif ($followUpUrl)
 
-                                                    <a href="{{ $followUpUrl }}" target="_blank" rel="noopener noreferrer" wire:click="
-                                                                                    registerFollowUp(
-                                                                                        {{ $quote->id }}
-                                                                                    )
-                                                                                " @click.stop class="
-                                                                                    inline-flex
-                                                                                    items-center
-                                                                                    justify-center
-                                                                                    gap-1.5
+                                                    <div class="flex flex-wrap items-center gap-2">
 
-                                                                                    rounded-lg
+                                                        {{-- Abre o WhatsApp sem registrar o follow-up --}}
+                                                        <a
+                                                            href="{{ $followUpUrl }}"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            @click.stop
+                                                            class="
+                                                                inline-flex
+                                                                items-center
+                                                                justify-center
+                                                                gap-1.5
 
-                                                                                    bg-emerald-600
+                                                                rounded-lg
 
-                                                                                    px-2.5
-                                                                                    py-1.5
+                                                                bg-emerald-600
 
-                                                                                    text-[11px]
-                                                                                    font-semibold
-                                                                                    text-white
+                                                                px-2.5
+                                                                py-1.5
 
-                                                                                    transition
+                                                                text-[11px]
+                                                                font-semibold
+                                                                text-white
 
-                                                                                    hover:bg-emerald-700
+                                                                transition
 
-                                                                                    dark:bg-emerald-500
-                                                                                    dark:text-zinc-950
+                                                                hover:bg-emerald-700
 
-                                                                                    dark:hover:bg-emerald-400
-                                                                                ">
+                                                                dark:bg-emerald-500
+                                                                dark:text-zinc-950
 
-                                                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                            stroke-width="2">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="
-                                                                                            M21 11.5
-                                                                                            a8.4 8.4 0 0 1-9 8.4
-                                                                                            9.5 9.5 0 0 1-4-.9
-                                                                                            L3 20.5
-                                                                                            4.5 16
-                                                                                            a8.4 8.4 0 1 1
-                                                                                            16.5-4.5Z
-                                                                                        " />
+                                                                dark:hover:bg-emerald-400
+                                                            "
+                                                        >
+                                                            <svg
+                                                                class="size-3.5"
+                                                                viewBox="0 0 24 24"
+                                                                fill="none"
+                                                                stroke="currentColor"
+                                                                stroke-width="2"
+                                                                aria-hidden="true"
+                                                            >
+                                                                <path
+                                                                    stroke-linecap="round"
+                                                                    stroke-linejoin="round"
+                                                                    d="
+                                                                        M21 11.5
+                                                                        a8.4 8.4 0 0 1-9 8.4
+                                                                        9.5 9.5 0 0 1-4-.9
+                                                                        L3 20.5
+                                                                        4.5 16
+                                                                        a8.4 8.4 0 1 1
+                                                                        16.5-4.5Z
+                                                                    "
+                                                                />
 
-                                                            <path stroke-linecap="round" stroke-linejoin="round" d="
-                                                                                            M8.5 8.5
-                                                                                            c.5 3
-                                                                                            2 4.5
-                                                                                            5 5
-                                                                                        " />
-                                                        </svg>
+                                                                <path
+                                                                    stroke-linecap="round"
+                                                                    stroke-linejoin="round"
+                                                                    d="
+                                                                        M8.5 8.5
+                                                                        c.5 3
+                                                                        2 4.5
+                                                                        5 5
+                                                                    "
+                                                                />
+                                                            </svg>
 
-                                                        Follow-up
+                                                            WhatsApp
+                                                        </a>
 
-                                                    </a>
+                                                        {{-- Registra somente depois que o contato foi realizado --}}
+                                                        <button
+                                                            type="button"
+                                                            wire:click="registerFollowUp({{ $quote->id }})"
+                                                            wire:loading.attr="disabled"
+                                                            wire:target="registerFollowUp({{ $quote->id }})"
+                                                            @click.stop
+                                                            class="
+                                                                inline-flex
+                                                                items-center
+                                                                justify-center
+                                                                gap-1.5
+
+                                                                rounded-lg
+                                                                border
+                                                                border-zinc-300
+
+                                                                px-2.5
+                                                                py-1.5
+
+                                                                text-[11px]
+                                                                font-semibold
+
+                                                                text-zinc-700
+
+                                                                transition
+
+                                                                hover:bg-zinc-100
+
+                                                                disabled:cursor-wait
+                                                                disabled:opacity-60
+
+                                                                dark:border-zinc-700
+                                                                dark:text-zinc-300
+                                                                dark:hover:bg-zinc-800
+                                                            "
+                                                        >
+                                                            <svg
+                                                                class="size-3.5"
+                                                                viewBox="0 0 24 24"
+                                                                fill="none"
+                                                                stroke="currentColor"
+                                                                stroke-width="2"
+                                                                aria-hidden="true"
+                                                            >
+                                                                <path
+                                                                    stroke-linecap="round"
+                                                                    stroke-linejoin="round"
+                                                                    d="m5 12 4 4L19 6"
+                                                                />
+                                                            </svg>
+
+                                                            <span
+                                                                wire:loading.remove
+                                                                wire:target="registerFollowUp({{ $quote->id }})"
+                                                            >
+                                                                Contato feito
+                                                            </span>
+
+                                                            <span
+                                                                wire:loading
+                                                                wire:target="registerFollowUp({{ $quote->id }})"
+                                                            >
+                                                                Salvando...
+                                                            </span>
+                                                        </button>
+
+                                                    </div>
 
 
                                                 @else
@@ -1568,6 +1654,8 @@ new class extends Component {
 
             </div>
 
+        </div>
+
     @endif
 
-    </div>
+</div>
