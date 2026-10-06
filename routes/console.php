@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Subscription;
+use App\Services\MercadoPagoService;
 use App\Services\SubscriptionService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -131,4 +132,140 @@ Schedule::command(
     'billing:process-subscriptions'
 )
     ->hourly()
+    ->withoutOverlapping();
+
+
+Artisan::command(
+    'billing:reconcile-mercadopago-pending',
+    function () {
+        $checked = 0;
+        $reconciled = 0;
+        $errors = 0;
+
+        $mercadoPago =
+            app(
+                MercadoPagoService::class
+            );
+
+        Subscription::query()
+            ->where(
+                'payment_provider',
+                'mercadopago_subscription'
+            )
+            ->where(
+                'billing_status',
+                'pending'
+            )
+            ->whereNotNull(
+                'provider_subscription_id'
+            )
+            ->chunkById(
+                100,
+                function ($subscriptions) use (
+                    $mercadoPago,
+                    &$checked,
+                    &$reconciled,
+                    &$errors
+                ): void {
+                    foreach (
+                        $subscriptions
+                        as $subscription
+                    ) {
+                        $checked++;
+
+                        try {
+                            $preapproval =
+                                $mercadoPago
+                                    ->getPreapproval(
+                                        $subscription
+                                            ->provider_subscription_id
+                                    );
+
+                            $mercadoPago
+                                ->syncSubscriptionPreapproval(
+                                    $subscription,
+                                    $preapproval
+                                );
+
+                            if (
+                                data_get(
+                                    $preapproval,
+                                    'status'
+                                ) !== 'authorized'
+                            ) {
+                                continue;
+                            }
+
+                            $invoices =
+                                $mercadoPago
+                                    ->searchAuthorizedPayments(
+                                        $subscription
+                                            ->provider_subscription_id
+                                    );
+
+                            $invoice =
+                                collect(
+                                    $invoices
+                                )
+                                    ->filter(
+                                        fn (array $invoice) =>
+                                            data_get(
+                                                $invoice,
+                                                'payment.status'
+                                            ) === 'approved'
+                                            && data_get(
+                                                $invoice,
+                                                'payment.status_detail'
+                                            ) === 'accredited'
+                                    )
+                                    ->sortByDesc(
+                                        fn (array $invoice) =>
+                                            (string) data_get(
+                                                $invoice,
+                                                'debit_date',
+                                                ''
+                                            )
+                                    )
+                                    ->first();
+
+                            if (! $invoice) {
+                                continue;
+                            }
+
+                            if (
+                                $mercadoPago
+                                    ->syncSubscriptionAuthorizedPayment(
+                                        $subscription,
+                                        $invoice,
+                                        $preapproval
+                                    )
+                            ) {
+                                $reconciled++;
+                            }
+                        } catch (\Throwable $exception) {
+                            report(
+                                $exception
+                            );
+
+                            $errors++;
+                        }
+                    }
+                }
+            );
+
+        $this->info(
+            "Mercado Pago reconciliation. "
+            ."Checked: {$checked}; "
+            ."reconciled: {$reconciled}; "
+            ."errors: {$errors}."
+        );
+    }
+)->purpose(
+    'Recover pending Mercado Pago subscriptions when a webhook is missed'
+);
+
+Schedule::command(
+    'billing:reconcile-mercadopago-pending'
+)
+    ->everyFifteenMinutes()
     ->withoutOverlapping();
