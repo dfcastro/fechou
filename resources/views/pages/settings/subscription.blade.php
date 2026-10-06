@@ -1365,7 +1365,11 @@ new #[Title('Plano e assinatura | Negozia')]
                         </div>
 
                         <form
-                            method="POST"
+                            method="{{
+                                $this->usesMercadoPagoCheckout()
+                                    ? 'GET'
+                                    : 'POST'
+                            }}"
                             action="{{
                                 route(
                                     $this->checkoutRouteName()
@@ -1373,11 +1377,16 @@ new #[Title('Plano e assinatura | Negozia')]
                             }}"
                             class="mt-5"
                         >
-                            @csrf
+                            @unless ($this->usesMercadoPagoCheckout())
+                                @csrf
+                            @endunless
 
                             <button
                                 type="submit"
-                                @if (!$this->hasBillingAddress)
+                                @if (
+                                    !$this->usesMercadoPagoCheckout()
+                                    && !$this->hasBillingAddress
+                                )
                                     x-on:click.prevent="
                                         subscribeOpen = true
                                     "
@@ -1999,7 +2008,10 @@ new #[Title('Plano e assinatura | Negozia')]
 
                                 <button
                                     type="submit"
-                                    @if (!$this->hasBillingAddress)
+                                    @if (
+                                        !$this->usesMercadoPagoCheckout()
+                                        && !$this->hasBillingAddress
+                                    )
                                         x-on:click.prevent="
                                             subscribeOpen = true
                                         "
