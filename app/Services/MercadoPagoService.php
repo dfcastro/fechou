@@ -434,6 +434,32 @@ class MercadoPagoService
         );
     }
 
+    public function searchAuthorizedPayments(
+        string $preapprovalId
+    ): array {
+        $response = $this
+            ->request()
+            ->get(
+                '/authorized_payments/search',
+                [
+                    'preapproval_id' =>
+                        $preapprovalId,
+                ]
+            );
+
+        $response->throw();
+
+        $results =
+            $response->json(
+                'results',
+                []
+            );
+
+        return is_array($results)
+            ? $results
+            : [];
+    }
+
     public function getAuthorizedPayment(
         string $authorizedPaymentId
     ): array {
