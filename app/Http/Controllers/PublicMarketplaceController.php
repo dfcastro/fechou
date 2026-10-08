@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Business;
-use App\Models\Client;
-use App\Models\Quote;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -18,17 +16,10 @@ class PublicMarketplaceController extends Controller
             ->limit(6)
             ->get();
 
-        $stats = [
-            'businesses' => Business::query()->count(),
-            'clients' => Client::query()->count(),
-            'quotes' => Quote::query()->count(),
-        ];
-
         return view(
             'marketplace.home',
             compact(
-                'featuredBusinesses',
-                'stats'
+                'featuredBusinesses'
             )
         );
     }

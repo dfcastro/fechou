@@ -38,6 +38,14 @@
             </a>
 
             <nav class="hidden items-center gap-7 text-sm font-medium text-zinc-600 md:flex dark:text-zinc-300">
+
+                <a
+                    href="{{ route('home') }}"
+                    class="transition hover:text-zinc-950 dark:hover:text-white"
+                >
+                    Encontrar serviços
+                </a>
+
                 <a href="#como-funciona" class="transition hover:text-zinc-950 dark:hover:text-white">
                     Como funciona
                 </a>
