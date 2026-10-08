@@ -7,6 +7,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use App\Support\BrazilianInput;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,6 +25,10 @@ class Business extends Model
         'phone',
         'whatsapp',
         'logo_path',
+        'public_profile_enabled',
+        'public_slug',
+        'public_description',
+        'public_services',
         'address',
         'address_number',
         'address_complement',
@@ -45,6 +50,7 @@ class Business extends Model
     protected function casts(): array
     {
         return [
+            'public_profile_enabled' => 'boolean',
             'onboarding_completed_at' => 'datetime',
             'payment_collection_enabled' => 'boolean',
             'follow_up_enabled' => 'boolean',
@@ -126,6 +132,70 @@ class Business extends Model
             set: fn($value) =>
                 BrazilianInput::state($value)
         );
+    }
+
+    public function scopePubliclyListed(
+        Builder $query
+    ): Builder {
+        return $query
+            ->where(
+                'public_profile_enabled',
+                true
+            )
+            ->whereNotNull('public_slug')
+            ->whereNotNull('city');
+    }
+
+    public function publicPhoneDisplay(): ?string
+    {
+        $digits = preg_replace(
+            '/\D+/',
+            '',
+            (string) $this->phone
+        );
+
+        if (!$digits) {
+            return null;
+        }
+
+        if (strlen($digits) === 11) {
+            return sprintf(
+                '(%s) %s-%s',
+                substr($digits, 0, 2),
+                substr($digits, 2, 5),
+                substr($digits, 7, 4)
+            );
+        }
+
+        if (strlen($digits) === 10) {
+            return sprintf(
+                '(%s) %s-%s',
+                substr($digits, 0, 2),
+                substr($digits, 2, 4),
+                substr($digits, 6, 4)
+            );
+        }
+
+        return $this->phone;
+    }
+
+    public function publicWhatsAppUrl(): ?string
+    {
+        $number = preg_replace(
+            '/\D+/',
+            '',
+            (string) $this->whatsapp
+        );
+
+        if (!$number) {
+            return null;
+        }
+
+        if (strlen($number) <= 11) {
+            $number = '55' . $number;
+        }
+
+        return 'https://wa.me/' . $number;
     }
 
     public function accessGrants(): HasMany

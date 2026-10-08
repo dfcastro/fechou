@@ -10,6 +10,7 @@ use App\Http\Controllers\MercadoPagoPixController;
 use App\Http\Controllers\MercadoPagoSubscriptionController;
 use App\Http\Controllers\StripeCheckoutController;
 use App\Http\Controllers\QuotePdfController;
+use App\Http\Controllers\PublicMarketplaceController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -19,10 +20,25 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::view(
+Route::get(
     '/',
-    'welcome'
+    [PublicMarketplaceController::class, 'home']
 )->name('home');
+
+Route::view(
+    'para-empresas',
+    'welcome'
+)->name('for-businesses');
+
+Route::get(
+    'empresas',
+    [PublicMarketplaceController::class, 'index']
+)->name('marketplace.index');
+
+Route::get(
+    'empresas/{slug}',
+    [PublicMarketplaceController::class, 'show']
+)->name('marketplace.show');
 
 
 /*
