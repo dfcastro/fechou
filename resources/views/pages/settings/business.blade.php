@@ -4,6 +4,8 @@ use App\Support\BrazilianInput;
 use App\Rules\ValidBrazilianDocument;
 use App\Rules\UniqueBusinessDocument;
 use App\Enums\PlanFeature;
+use App\Models\Service;
+use App\Models\ServiceCategory;
 use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -25,7 +27,10 @@ new #[Title('Empresa | Negozia')]
 
     public bool $publicProfileEnabled = false;
     public string $publicDescription = '';
-    public string $publicServices = '';
+
+    public string $publicServiceCategoryId = '';
+
+    public array $publicServiceIds = [];
 
     public string $address = '';
     public string $addressNumber = '';
@@ -43,6 +48,43 @@ new #[Title('Empresa | Negozia')]
     public function business()
     {
         return Auth::user()?->business;
+    }
+
+    #[Computed]
+    public function serviceCategories()
+    {
+        return ServiceCategory::query()
+            ->where('active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+    }
+
+    #[Computed]
+    public function availableServices()
+    {
+        if (
+            blank(
+                $this->publicServiceCategoryId
+            )
+        ) {
+            return collect();
+        }
+
+        return Service::query()
+            ->where(
+                'service_category_id',
+                (int) $this->publicServiceCategoryId
+            )
+            ->where('active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function updatedPublicServiceCategoryId(): void
+    {
+        $this->publicServiceIds = [];
     }
 
     #[Computed]
@@ -105,8 +147,37 @@ new #[Title('Empresa | Negozia')]
         $this->publicDescription =
             $business->public_description ?? '';
 
-        $this->publicServices =
-            $business->public_services ?? '';
+        $selectedServices = $business
+            ->services()
+            ->where(
+                'services.active',
+                true
+            )
+            ->orderBy(
+                'services.sort_order'
+            )
+            ->get([
+                'services.id',
+                'services.service_category_id',
+            ]);
+
+        $this->publicServiceIds =
+            $selectedServices
+                ->pluck('id')
+                ->map(
+                    fn ($id) => (string) $id
+                )
+                ->values()
+                ->all();
+
+        $selectedCategory =
+            $selectedServices->first();
+
+        $this->publicServiceCategoryId =
+            $selectedCategory
+                ? (string) $selectedCategory
+                    ->service_category_id
+                : '';
 
         $this->address = $business->address ?? '';
         $this->addressNumber =
@@ -264,10 +335,19 @@ new #[Title('Empresa | Negozia')]
                 'max:1000',
             ],
 
-            'publicServices' => [
+            'publicServiceCategoryId' => [
                 'nullable',
-                'string',
-                'max:500',
+                'integer',
+                'exists:service_categories,id',
+            ],
+
+            'publicServiceIds' => [
+                'array',
+            ],
+
+            'publicServiceIds.*' => [
+                'integer',
+                'exists:services,id',
             ],
 
             'address' => [
@@ -367,17 +447,104 @@ new #[Title('Empresa | Negozia')]
             return;
         }
 
+        $categoryId = (int) (
+            $validated[
+                'publicServiceCategoryId'
+            ] ?? 0
+        );
+
+        $serviceIds = array_values(
+            array_unique(
+                array_map(
+                    'intval',
+                    $validated[
+                        'publicServiceIds'
+                    ] ?? []
+                )
+            )
+        );
+
         if (
             $validated['publicProfileEnabled']
-            && blank($validated['publicServices'])
+            && $categoryId <= 0
         ) {
             $this->addError(
-                'publicServices',
-                'Informe ao menos um serviço oferecido.'
+                'publicServiceCategoryId',
+                'Selecione a categoria da empresa.'
             );
 
             return;
         }
+
+        if (
+            $categoryId > 0
+            && !ServiceCategory::query()
+                ->whereKey($categoryId)
+                ->where('active', true)
+                ->exists()
+        ) {
+            $this->addError(
+                'publicServiceCategoryId',
+                'Selecione uma categoria válida.'
+            );
+
+            return;
+        }
+
+        $selectedServices = collect();
+
+        if (
+            $categoryId > 0
+            && $serviceIds !== []
+        ) {
+            $selectedServices =
+                Service::query()
+                    ->whereIn(
+                        'id',
+                        $serviceIds
+                    )
+                    ->where(
+                        'service_category_id',
+                        $categoryId
+                    )
+                    ->where(
+                        'active',
+                        true
+                    )
+                    ->orderBy(
+                        'sort_order'
+                    )
+                    ->get();
+
+            if (
+                $selectedServices->count()
+                !== count($serviceIds)
+            ) {
+                $this->addError(
+                    'publicServiceIds',
+                    'Um ou mais serviços selecionados não pertencem à categoria informada.'
+                );
+
+                return;
+            }
+        }
+
+        if (
+            $validated['publicProfileEnabled']
+            && $selectedServices->isEmpty()
+        ) {
+            $this->addError(
+                'publicServiceIds',
+                'Selecione ao menos um serviço oferecido.'
+            );
+
+            return;
+        }
+
+        $publicServices =
+            $selectedServices
+                ->pluck('name')
+                ->implode(', ');
 
         $publicSlug = $business->public_slug;
 
@@ -438,11 +605,7 @@ new #[Title('Empresa | Negozia')]
                 ) ?: null,
 
             'public_services' =>
-                trim(
-                    $validated[
-                        'publicServices'
-                    ]
-                ) ?: null,
+                $publicServices ?: null,
 
             'address' =>
                 $validated['address'] ?: null,
@@ -503,6 +666,14 @@ new #[Title('Empresa | Negozia')]
 
         $business->update($data);
 
+        $business
+            ->services()
+            ->sync(
+                $selectedServices
+                    ->pluck('id')
+                    ->all()
+            );
+
         $this->logo = null;
 
         session()->flash(
@@ -526,26 +697,6 @@ new #[Title('Empresa | Negozia')]
         </p>
 
     </div>
-
-
-    @if (session('success'))
-
-        <div class="
-                    rounded-xl
-                    border border-emerald-200
-                    bg-emerald-50
-                    px-4 py-3
-                    text-sm font-medium
-                    text-emerald-800
-
-                    dark:border-emerald-900
-                    dark:bg-emerald-950/40
-                    dark:text-emerald-300
-                ">
-            {{ session('success') }}
-        </div>
-
-    @endif
 
 
     <form wire:submit="save" class="space-y-5">
@@ -1352,14 +1503,11 @@ new #[Title('Empresa | Negozia')]
                             text-zinc-700
                             dark:text-zinc-300
                         ">
-                        Serviços oferecidos
+                        Categoria principal
                     </label>
 
-                    <input
-                        type="text"
-                        wire:model="publicServices"
-                        placeholder="Ex.: eletricista, instalação elétrica, manutenção"
-                        maxlength="500"
+                    <select
+                        wire:model.live="publicServiceCategoryId"
                         class="
                             w-full rounded-lg
                             border border-zinc-300
@@ -1376,17 +1524,32 @@ new #[Title('Empresa | Negozia')]
                             dark:text-white
                         "
                     >
+                        <option value="">
+                            Selecione uma categoria
+                        </option>
+
+                        @foreach (
+                            $this->serviceCategories
+                            as $category
+                        )
+                            <option
+                                value="{{ $category->id }}"
+                            >
+                                {{ $category->name }}
+                            </option>
+                        @endforeach
+                    </select>
 
                     <p class="
                             mt-1.5 text-xs
                             text-zinc-500
                             dark:text-zinc-400
                         ">
-                        Separe os serviços por vírgula. Esses
-                        termos serão usados na busca.
+                        Escolha a área que melhor representa
+                        os serviços da sua empresa.
                     </p>
 
-                    @error('publicServices')
+                    @error('publicServiceCategoryId')
                         <p class="
                                 mt-1 text-sm
                                 text-red-600
@@ -1396,6 +1559,151 @@ new #[Title('Empresa | Negozia')]
                         </p>
                     @enderror
                 </div>
+
+
+                @if ($publicServiceCategoryId)
+                    <div>
+                        <div class="
+                                flex flex-wrap
+                                items-end
+                                justify-between
+                                gap-2
+                            ">
+                            <div>
+                                <label class="
+                                        block
+                                        text-sm font-medium
+                                        text-zinc-700
+                                        dark:text-zinc-300
+                                    ">
+                                    Serviços oferecidos
+                                </label>
+
+                                <p class="
+                                        mt-1 text-xs
+                                        text-zinc-500
+                                        dark:text-zinc-400
+                                    ">
+                                    Selecione todos os serviços
+                                    que sua empresa realiza.
+                                </p>
+                            </div>
+
+                            <span class="
+                                    text-xs font-medium
+                                    text-zinc-400
+                                ">
+                                {{
+                                    count(
+                                        $publicServiceIds
+                                    )
+                                }}
+                                selecionado(s)
+                            </span>
+                        </div>
+
+                        <div class="
+                                mt-3
+                                grid gap-2
+
+                                sm:grid-cols-2
+                                lg:grid-cols-3
+                            ">
+                            @forelse (
+                                $this->availableServices
+                                as $service
+                            )
+                                <label
+                                    wire:key="public-service-{{ $service->id }}"
+                                    class="
+                                        flex cursor-pointer
+                                        items-start gap-3
+                                        rounded-xl
+                                        border border-zinc-200
+                                        bg-white
+                                        p-3
+                                        transition
+
+                                        hover:border-emerald-300
+                                        hover:bg-emerald-50/50
+
+                                        dark:border-zinc-700
+                                        dark:bg-zinc-950
+                                        dark:hover:border-emerald-800
+                                        dark:hover:bg-emerald-950/20
+                                    "
+                                >
+                                    <input
+                                        type="checkbox"
+                                        value="{{ $service->id }}"
+                                        wire:model="publicServiceIds"
+                                        class="
+                                            mt-0.5 size-4
+                                            rounded
+                                            border-zinc-300
+                                            text-emerald-600
+                                            focus:ring-emerald-500
+                                        "
+                                    >
+
+                                    <span class="
+                                            text-sm font-medium
+                                            text-zinc-800
+                                            dark:text-zinc-200
+                                        ">
+                                        {{ $service->name }}
+                                    </span>
+                                </label>
+                            @empty
+                                <p class="
+                                        text-sm
+                                        text-zinc-500
+                                        dark:text-zinc-400
+                                    ">
+                                    Nenhum serviço cadastrado
+                                    nesta categoria.
+                                </p>
+                            @endforelse
+                        </div>
+
+                        @error('publicServiceIds')
+                            <p class="
+                                    mt-2 text-sm
+                                    text-red-600
+                                    dark:text-red-400
+                                ">
+                                {{ $message }}
+                            </p>
+                        @enderror
+
+                        @error('publicServiceIds.*')
+                            <p class="
+                                    mt-2 text-sm
+                                    text-red-600
+                                    dark:text-red-400
+                                ">
+                                {{ $message }}
+                            </p>
+                        @enderror
+                    </div>
+                @else
+                    <div class="
+                            rounded-xl
+                            border border-dashed
+                            border-zinc-300
+                            px-4 py-5
+                            text-center
+                            text-sm
+                            text-zinc-500
+
+                            dark:border-zinc-700
+                            dark:text-zinc-400
+                        ">
+                        Selecione uma categoria para ver
+                        os serviços disponíveis.
+                    </div>
+                @endif
+
 
                 <div>
                     <label class="
@@ -1718,7 +2026,49 @@ new #[Title('Empresa | Negozia')]
         </div>
 
 
-        <div class="flex justify-end">
+        <div class="
+                flex flex-col gap-3
+
+                sm:flex-row
+                sm:items-center
+                sm:justify-between
+            ">
+
+            <div>
+                @if (session('success'))
+                    <div class="
+                            inline-flex
+                            items-center gap-2
+                            rounded-lg
+                            border border-emerald-200
+                            bg-emerald-50
+                            px-3 py-2
+                            text-sm font-medium
+                            text-emerald-700
+
+                            dark:border-emerald-900
+                            dark:bg-emerald-950/40
+                            dark:text-emerald-300
+                        ">
+                        <svg
+                            class="size-4 shrink-0"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            aria-hidden="true"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M5 12.5 9 16l10-10"
+                            />
+                        </svg>
+
+                        {{ session('success') }}
+                    </div>
+                @endif
+            </div>
 
             <button type="submit" wire:loading.attr="disabled" class="
                     inline-flex items-center justify-center

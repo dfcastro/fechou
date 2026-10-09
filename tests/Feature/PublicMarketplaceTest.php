@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Business;
+use App\Models\Service;
+use App\Models\ServiceCategory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -29,8 +31,7 @@ class PublicMarketplaceTest extends TestCase
             'state' => 'MG',
             'public_profile_enabled' => true,
             'public_slug' => 'eletrica-almenara-1',
-            'public_services' =>
-                'Eletricista, instalação elétrica',
+            'public_services' => 'Eletricista, instalação elétrica',
         ]);
 
         $hidden = Business::factory()->create([
@@ -50,6 +51,49 @@ class PublicMarketplaceTest extends TestCase
             ->assertOk()
             ->assertSee($visible->name)
             ->assertDontSee($hidden->name);
+    }
+
+    public function test_search_uses_catalog_terms_and_synonyms(): void
+    {
+        $category = ServiceCategory::create([
+            'name' => 'Elétrica',
+            'slug' => 'eletrica',
+            'search_terms' => 'eletricista elétrica eletrica',
+            'sort_order' => 1,
+            'active' => true,
+        ]);
+
+        $service = Service::create([
+            'service_category_id' => $category->id,
+            'name' => 'Instalação elétrica',
+            'slug' => 'instalacao-eletrica',
+            'search_terms' => 'eletricista instalação elétrica',
+            'sort_order' => 1,
+            'active' => true,
+        ]);
+
+        $business = Business::factory()->create([
+            'name' => 'Empresa Energia',
+            'city' => 'Almenara',
+            'state' => 'MG',
+            'public_profile_enabled' => true,
+            'public_slug' => 'empresa-energia-1',
+            'public_services' => null,
+        ]);
+
+        $business
+            ->services()
+            ->attach($service);
+
+        $this
+            ->get(route('marketplace.index', [
+                'servico' => 'eletricista',
+                'cidade' => 'Almenara',
+            ]))
+            ->assertOk()
+            ->assertSee(
+                'Empresa Energia'
+            );
     }
 
     public function test_enabled_public_profile_can_be_viewed(): void
@@ -103,5 +147,4 @@ class PublicMarketplaceTest extends TestCase
                 'Encontrar serviços'
             );
     }
-
 }
