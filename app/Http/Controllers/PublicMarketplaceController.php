@@ -12,6 +12,9 @@ class PublicMarketplaceController extends Controller
     {
         $featuredBusinesses = Business::query()
             ->publiclyListed()
+            ->with([
+                'services.category',
+            ])
             ->latest()
             ->limit(6)
             ->get();
@@ -43,26 +46,73 @@ class PublicMarketplaceController extends Controller
 
         $businesses = Business::query()
             ->publiclyListed()
+            ->with([
+                'services.category',
+            ])
             ->when(
                 $service !== '',
                 function ($query) use ($service) {
+                    $like = '%'.$service.'%';
+
                     $query->where(
-                        function ($query) use ($service) {
+                        function ($query) use ($like) {
                             $query
                                 ->where(
-                                    'name',
+                                    'businesses.name',
                                     'like',
-                                    '%' . $service . '%'
+                                    $like
                                 )
                                 ->orWhere(
                                     'public_services',
                                     'like',
-                                    '%' . $service . '%'
+                                    $like
                                 )
                                 ->orWhere(
                                     'public_description',
                                     'like',
-                                    '%' . $service . '%'
+                                    $like
+                                )
+                                ->orWhereHas(
+                                    'services',
+                                    function ($query) use ($like) {
+                                        $query
+                                            ->where(
+                                                'services.name',
+                                                'like',
+                                                $like
+                                            )
+                                            ->orWhere(
+                                                'services.slug',
+                                                'like',
+                                                $like
+                                            )
+                                            ->orWhere(
+                                                'services.search_terms',
+                                                'like',
+                                                $like
+                                            )
+                                            ->orWhereHas(
+                                                'category',
+                                                function ($query) use ($like) {
+                                                    $query
+                                                        ->where(
+                                                            'service_categories.name',
+                                                            'like',
+                                                            $like
+                                                        )
+                                                        ->orWhere(
+                                                            'service_categories.slug',
+                                                            'like',
+                                                            $like
+                                                        )
+                                                        ->orWhere(
+                                                            'service_categories.search_terms',
+                                                            'like',
+                                                            $like
+                                                        );
+                                                }
+                                            );
+                                    }
                                 );
                         }
                     );
@@ -70,12 +120,11 @@ class PublicMarketplaceController extends Controller
             )
             ->when(
                 $city !== '',
-                fn ($query) =>
-                    $query->where(
-                        'city',
-                        'like',
-                        '%' . $city . '%'
-                    )
+                fn ($query) => $query->where(
+                    'city',
+                    'like',
+                    '%'.$city.'%'
+                )
             )
             ->orderBy('name')
             ->paginate(12)
@@ -96,6 +145,9 @@ class PublicMarketplaceController extends Controller
     ): View {
         $business = Business::query()
             ->publiclyListed()
+            ->with([
+                'services.category',
+            ])
             ->where(
                 'public_slug',
                 $slug

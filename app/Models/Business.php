@@ -2,21 +2,20 @@
 
 namespace App\Models;
 
-
-
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use App\Support\BrazilianInput;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-
 
 class Business extends Model
 {
     use HasFactory;
+
     protected $fillable = [
         'user_id',
         'name',
@@ -60,6 +59,7 @@ class Business extends Model
             'follow_up_cooldown_hours' => 'integer',
         ];
     }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -73,6 +73,12 @@ class Business extends Model
     public function quotes(): HasMany
     {
         return $this->hasMany(Quote::class);
+    }
+
+    public function services(): BelongsToMany
+    {
+        return $this->belongsToMany(Service::class)
+            ->withTimestamps();
     }
 
     public function subscriptions(): HasMany
@@ -93,44 +99,38 @@ class Business extends Model
             ->latestOfMany();
     }
 
-
     protected function document(): Attribute
     {
         return Attribute::make(
-            set: fn($value) =>
-                BrazilianInput::document($value)
+            set: fn ($value) => BrazilianInput::document($value)
         );
     }
 
     protected function phone(): Attribute
     {
         return Attribute::make(
-            set: fn($value) =>
-                BrazilianInput::phone($value)
+            set: fn ($value) => BrazilianInput::phone($value)
         );
     }
 
     protected function whatsapp(): Attribute
     {
         return Attribute::make(
-            set: fn($value) =>
-                BrazilianInput::phone($value)
+            set: fn ($value) => BrazilianInput::phone($value)
         );
     }
 
     protected function postalCode(): Attribute
     {
         return Attribute::make(
-            set: fn($value) =>
-                BrazilianInput::cep($value)
+            set: fn ($value) => BrazilianInput::cep($value)
         );
     }
 
     protected function state(): Attribute
     {
         return Attribute::make(
-            set: fn($value) =>
-                BrazilianInput::state($value)
+            set: fn ($value) => BrazilianInput::state($value)
         );
     }
 
@@ -143,7 +143,16 @@ class Business extends Model
                 true
             )
             ->whereNotNull('public_slug')
-            ->whereNotNull('city');
+            ->whereNotNull('city')
+            ->where(
+                function (Builder $query) {
+                    $query
+                        ->whereHas('services')
+                        ->orWhereNotNull(
+                            'public_services'
+                        );
+                }
+            );
     }
 
     public function publicPhoneDisplay(): ?string
@@ -154,7 +163,7 @@ class Business extends Model
             (string) $this->phone
         );
 
-        if (!$digits) {
+        if (! $digits) {
             return null;
         }
 
@@ -187,15 +196,15 @@ class Business extends Model
             (string) $this->whatsapp
         );
 
-        if (!$number) {
+        if (! $number) {
             return null;
         }
 
         if (strlen($number) <= 11) {
-            $number = '55' . $number;
+            $number = '55'.$number;
         }
 
-        return 'https://wa.me/' . $number;
+        return 'https://wa.me/'.$number;
     }
 
     public function accessGrants(): HasMany

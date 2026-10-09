@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
         */
         $this->call([
             PlanSeeder::class,
+            ServiceCatalogSeeder::class,
         ]);
         $user = User::factory()->create([
             'name' => 'Daniel Demo',
