@@ -6,8 +6,10 @@ use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
 use App\Models\User;
 use App\Services\SubscriptionService;
+use App\Services\TurnstileVerifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
 
@@ -16,7 +18,8 @@ class CreateNewUser implements CreatesNewUsers
     use PasswordValidationRules, ProfileValidationRules;
 
     public function __construct(
-        private SubscriptionService $subscriptionService
+        private SubscriptionService $subscriptionService,
+        private TurnstileVerifier $turnstileVerifier
     ) {
     }
 
@@ -31,6 +34,16 @@ class CreateNewUser implements CreatesNewUsers
             ...$this->profileRules(),
             'password' => $this->passwordRules(),
         ])->validate();
+
+        // Verify bot challenge before creating a user, company or subscription.
+        if (! $this->turnstileVerifier->passes(
+            $input['cf-turnstile-response'] ?? null,
+            request()->ip()
+        )) {
+            throw ValidationException::withMessages([
+                'turnstile' => 'Não foi possível validar o cadastro. Tente novamente.',
+            ]);
+        }
 
         $user = DB::transaction(function () use ($input) {
 
