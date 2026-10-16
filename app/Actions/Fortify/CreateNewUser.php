@@ -35,9 +35,12 @@ class CreateNewUser implements CreatesNewUsers
             'password' => $this->passwordRules(),
         ])->validate();
 
+        // Reject malformed tokens instead of allowing array inputs to cause an error.
+        $turnstileToken = $input['cf-turnstile-response'] ?? null;
+
         // Verify bot challenge before creating a user, company or subscription.
         if (! $this->turnstileVerifier->passes(
-            $input['cf-turnstile-response'] ?? null,
+            is_string($turnstileToken) ? $turnstileToken : null,
             request()->ip()
         )) {
             throw ValidationException::withMessages([
