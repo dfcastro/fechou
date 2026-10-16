@@ -53,7 +53,7 @@ class PublicSeoTest extends TestCase
         $this->assertFileExists(public_path('icon-192.png'));
         $this->assertFileExists(public_path('site.webmanifest'));
         $this->assertStringStartsWith(
-            '\x00\x00\x01\x00',
+            pack('C4', 0, 0, 1, 0),
             file_get_contents(public_path('favicon.ico'))
         );
     }
