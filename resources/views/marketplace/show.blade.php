@@ -5,7 +5,7 @@
     $business->name .
     ' em ' .
     $business->city .
-    ' | Negozia'
+    ' | NegoZia'
 )
 
 @section(
@@ -13,7 +13,7 @@
     $business->public_description
         ?: 'Conheça ' .
             $business->name .
-            ' no Negozia.'
+            ' no NegoZia.'
 )
 
 @section('content')
@@ -98,7 +98,7 @@
                         text-sm font-semibold
                         text-emerald-600
                     ">
-                    Empresa no Negozia
+                    Empresa no NegoZia
                 </p>
 
                 <h1 class="
@@ -347,7 +347,7 @@
                         dark:border-zinc-800
                     ">
                     Perfil publicado pela própria empresa
-                    no Negozia.
+                    no NegoZia.
                 </div>
 
             </div>
