@@ -11,6 +11,7 @@ use App\Http\Controllers\MercadoPagoSubscriptionController;
 use App\Http\Controllers\StripeCheckoutController;
 use App\Http\Controllers\QuotePdfController;
 use App\Http\Controllers\PublicMarketplaceController;
+use App\Http\Controllers\SitemapController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -24,6 +25,8 @@ Route::get(
     '/',
     [PublicMarketplaceController::class, 'home']
 )->name('home');
+
+Route::get('sitemap.xml', SitemapController::class)->name('sitemap');
 
 Route::view(
     'para-empresas',
