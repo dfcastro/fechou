@@ -2,7 +2,12 @@
 
 @section(
     'title',
-    'Buscar empresas | Negozia'
+    'Buscar empresas | NegoZia'
+)
+
+@section(
+    'description',
+    'Encontre empresas e profissionais por cidade e tipo de serviço. Busque prestadores de serviços e entre em contato diretamente pelo NegoZia.'
 )
 
 @section('content')
