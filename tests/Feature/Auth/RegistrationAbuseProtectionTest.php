@@ -6,6 +6,7 @@ use App\Models\Plan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Features;
 use Tests\TestCase;
 
@@ -85,6 +86,24 @@ class RegistrationAbuseProtectionTest extends TestCase
             ->post(route('register.store'), $this->registrationData([
                 'email' => 'invalid-email',
             ]))->assertSessionHasErrors('email');
+    }
+
+    public function test_transport_peer_limit_still_works_with_forged_forwarded_ip(): void
+    {
+        $peer = '192.0.2.85';
+        $key = 'register:peer:'.hash('sha256', $peer).':hour';
+
+        for ($i = 0; $i < 100; $i++) {
+            RateLimiter::hit($key, 3600);
+        }
+
+        $this->withServerVariables(['REMOTE_ADDR' => $peer])
+            ->withHeaders(['X-Forwarded-For' => '198.51.100.200'])
+            ->post(route('register.store'), $this->registrationData([
+                'email' => 'invalid-email',
+            ]))->assertStatus(429);
+
+        $this->assertSame(0, User::count());
     }
 
     public function test_turnstile_widget_only_loads_when_site_key_is_set(): void
