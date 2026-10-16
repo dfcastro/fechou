@@ -12,6 +12,9 @@
 @endphp
 
 @if (filled($googleAdsId) && filled($googleAdsLabel))
+    @if ($googleAdsRegistrationToken)
+        <meta name="negozia-ads-registration" content="{{ $googleAdsRegistrationToken }}">
+    @endif
     <script>
         (function () {
             'use strict';
@@ -51,6 +54,28 @@
                 writeStorage('sessionStorage', pendingKey, registrationToken);
             }
 
+            function consumeRegistrationToken() {
+                const tag = document.querySelector('meta[name="negozia-ads-registration"]');
+                if (!tag) return;
+                const token = tag.getAttribute('content');
+                tag.remove();
+                if (!token) return;
+                writeStorage('sessionStorage', pendingKey, token);
+                if (trackingStarted) sendPendingRegistration();
+            }
+
+            function sendPendingRegistration() {
+                const token = readStorage('sessionStorage', pendingKey);
+                if (!token || typeof window.gtag !== 'function') return;
+                window.gtag('event', 'conversion', {
+                    send_to: adsId + '/' + registrationLabel,
+                    value: 0,
+                    currency: 'BRL',
+                    transaction_id: token
+                });
+                removeStorage('sessionStorage', pendingKey);
+            }
+
             function startTracking() {
                 if (trackingStarted) return;
                 trackingStarted = true;
@@ -82,17 +107,7 @@
                     + encodeURIComponent(adsId);
                 document.head.appendChild(script);
 
-                const token = readStorage('sessionStorage', pendingKey);
-                if (token) {
-                    // Random per-registration token, not email or other personal data.
-                    window.gtag('event', 'conversion', {
-                        send_to: adsId + '/' + registrationLabel,
-                        value: 0,
-                        currency: 'BRL',
-                        transaction_id: token
-                    });
-                    removeStorage('sessionStorage', pendingKey);
-                }
+                sendPendingRegistration();
             }
 
             function showConsentBanner() {
@@ -128,7 +143,15 @@
                         writeStorage('localStorage', consentKey, decision);
                         banner.remove();
                         showPreferenceButton();
-                        if (decision === 'granted') startTracking();
+                        if (decision === 'granted') {
+                            if (trackingStarted) {
+                                window.gtag('consent', 'update', { ad_storage: 'granted' });
+                            } else {
+                                startTracking();
+                            }
+                        } else if (trackingStarted) {
+                            window.gtag('consent', 'update', { ad_storage: 'denied' });
+                        }
                     });
                     choices.appendChild(button);
                 }
@@ -161,7 +184,9 @@
                 startTracking();
             }
 
+            document.addEventListener('livewire:navigated', consumeRegistrationToken);
             document.addEventListener('DOMContentLoaded', function () {
+                consumeRegistrationToken();
                 const choice = readStorage('localStorage', consentKey);
                 if (choice === 'granted' || choice === 'denied') {
                     showPreferenceButton();
