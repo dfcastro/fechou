@@ -88,6 +88,34 @@ class RegistrationAbuseProtectionTest extends TestCase
             ]))->assertSessionHasErrors('email');
     }
 
+    public function test_forged_forwarded_headers_cannot_reset_client_registration_limit(): void
+    {
+        // nginx -> PHP-FPM directly: no upstream proxy is authorized to
+        // supply X-Forwarded-For. Rotating this header must not reset quotas.
+        $this->withServerVariables([
+            'REMOTE_ADDR' => '192.0.2.94',
+            'HTTPS' => 'on',
+        ]);
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->withHeaders([
+                'X-Forwarded-For' => '198.51.100.'.(100 + $i),
+                'X-Forwarded-Proto' => 'http',
+            ])->post(route('register.store'), $this->registrationData([
+                'email' => 'invalid-email',
+            ]))->assertSessionHasErrors('email');
+        }
+
+        $this->withHeaders([
+            'X-Forwarded-For' => '203.0.113.100',
+            'X-Forwarded-Proto' => 'http',
+        ])->post(route('register.store'), $this->registrationData([
+            'email' => 'invalid-email',
+        ]))->assertStatus(429)->assertHeader('Retry-After');
+
+        $this->assertSame(0, User::count());
+    }
+
     public function test_transport_peer_limit_still_works_with_forged_forwarded_ip(): void
     {
         $peer = '192.0.2.85';
