@@ -26,6 +26,16 @@ class ThrottleRegistrations
             $prefix.':hour' => [20, 3600],
         ];
 
+        // Defense in depth: unlike X-Forwarded-For, REMOTE_ADDR reflects the
+        // transport peer and cannot be chosen by an arbitrary request header.
+        // Use a higher threshold because reverse proxies can share one peer IP.
+        $transportPeer = $request->server('REMOTE_ADDR');
+
+        if (is_string($transportPeer) && $transportPeer !== '') {
+            $peerKey = 'register:peer:'.hash('sha256', $transportPeer);
+            $limits[$peerKey.':hour'] = [100, 3600];
+        }
+
         $retryAfter = 0;
 
         foreach ($limits as $key => [$maxAttempts]) {
