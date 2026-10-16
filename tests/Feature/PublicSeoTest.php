@@ -52,6 +52,13 @@ class PublicSeoTest extends TestCase
         $this->assertFileExists(public_path('apple-touch-icon.png'));
         $this->assertFileExists(public_path('icon-192.png'));
         $this->assertFileExists(public_path('site.webmanifest'));
+        $this->assertSame(
+            pack('C8', 137, 80, 78, 71, 13, 10, 26, 10),
+            substr(file_get_contents(public_path('icon-192.png')), 0, 8)
+        );
+        $this->assertIsArray(
+            json_decode(file_get_contents(public_path('site.webmanifest')), true)
+        );
         $this->assertStringStartsWith(
             pack('C4', 0, 0, 1, 0),
             file_get_contents(public_path('favicon.ico'))
