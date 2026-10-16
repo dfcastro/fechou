@@ -56,6 +56,17 @@ class GoogleAdsConversionTest extends TestCase
             ->assertDontSee('negozia_google_ads_consent_v1');
     }
 
+    public function test_business_landing_page_loads_ads_tag_when_configured(): void
+    {
+        $this->enableGoogleAdsTracking();
+
+        $this->get(route('for-businesses'))
+            ->assertOk()
+            ->assertSee('AW-123456789')
+            ->assertSee('TestRegistrationLabel')
+            ->assertSee('negozia_google_ads_consent_v1');
+    }
+
     public function test_failed_registration_does_not_mark_a_conversion(): void
     {
         $this->enableGoogleAdsTracking();
