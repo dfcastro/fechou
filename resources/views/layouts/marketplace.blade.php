@@ -65,7 +65,7 @@
                         text-lg font-bold
                         tracking-tight
                     ">
-                    Negozia
+                    NegoZia
                 </span>
             </a>
 
@@ -179,12 +179,12 @@
                         text-zinc-700
                         dark:text-zinc-200
                     ">
-                    Negozia
+                    NegoZia
                 </span>
             </div>
 
             <p>
-                © {{ now()->year }} Negozia.
+                © {{ now()->year }} NegoZia.
                 Encontre. Negocie. Feche.
             </p>
         </div>
