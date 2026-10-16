@@ -21,7 +21,6 @@
 
             const adsId = @json($googleAdsId);
             const registrationLabel = @json($googleAdsLabel);
-            const registrationToken = @json($googleAdsRegistrationToken);
             const consentKey = 'negozia_google_ads_consent_v1';
             const pendingKey = 'negozia_google_ads_registration_pending_v1';
             let trackingStarted = false;
@@ -50,10 +49,8 @@
                 }
             }
 
-            if (registrationToken) {
-                writeStorage('sessionStorage', pendingKey, registrationToken);
-            }
-
+            // Read the token from the onboarding DOM only once. Pre-queueing it
+            // earlier would send two conversions when consent is already granted.
             function consumeRegistrationToken() {
                 const tag = document.querySelector('meta[name="negozia-ads-registration"]');
                 if (!tag) return;
