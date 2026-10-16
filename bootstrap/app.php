@@ -12,7 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->trustProxies(at: '*');
+        // Nginx serves this application directly over HTTPS.
+        // Do not trust client-controlled X-Forwarded-* headers as proxy input.
+        // If a trusted reverse proxy is introduced, configure its exact IPs.
 
         /*
          * O Asaas envia POST diretamente para este endpoint
