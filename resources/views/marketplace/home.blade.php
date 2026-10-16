@@ -2,7 +2,7 @@
 
 @section(
     'title',
-    'Negozia — Encontre empresas e serviços na sua cidade'
+    'NegoZia — Encontre empresas e serviços na sua cidade'
 )
 
 @section(
@@ -769,7 +769,7 @@
                         mt-0.5 text-xs
                         text-zinc-400
                     ">
-                    Divulgue seus serviços no Negozia
+                    Divulgue seus serviços no NegoZia
                 </p>
             </div>
         </div>
@@ -809,7 +809,7 @@
 
                         sm:text-3xl
                     ">
-                    Empresas no Negozia
+                    Empresas no NegoZia
                 </h2>
             </div>
 
@@ -1030,7 +1030,7 @@
                         hover:bg-white/10
                     "
                 >
-                    Conhecer o Negozia
+                    Conhecer o NegoZia
                 </a>
 
                 <a
