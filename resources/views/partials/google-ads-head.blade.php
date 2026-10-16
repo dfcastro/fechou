@@ -69,7 +69,7 @@
                 if (!token || typeof window.gtag !== 'function') return;
                 window.gtag('event', 'conversion', {
                     send_to: adsId + '/' + registrationLabel,
-                    value: 0,
+                    value: 1.0,
                     currency: 'BRL',
                     transaction_id: token
                 });
