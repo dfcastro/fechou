@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
 
 class CreateNewUser implements CreatesNewUsers
@@ -31,7 +32,7 @@ class CreateNewUser implements CreatesNewUsers
             'password' => $this->passwordRules(),
         ])->validate();
 
-        return DB::transaction(function () use ($input) {
+        $user = DB::transaction(function () use ($input) {
 
             $user = User::create([
                 'name' => $input['name'],
@@ -61,5 +62,11 @@ class CreateNewUser implements CreatesNewUsers
 
             return $user;
         });
+
+        // Only a completed registration should be eligible for an Ads conversion.
+        // The onboarding page consumes this one-time token after the redirect.
+        session()->put('google_ads_registration_pending', (string) Str::uuid());
+
+        return $user;
     }
 }
