@@ -6,13 +6,13 @@
 <meta property="og:title" content="{{ $seoTitle }}">
 <meta property="og:description" content="{{ $seoDescription }}">
 <meta property="og:url" content="{{ $seoUrl }}">
-<meta property="og:image" content="{{ asset('og-negozia.png') }}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta name="twitter:card" content="summary_large_image">
+<meta property="og:image" content="{{ asset('icon-192.png') }}">
+<meta property="og:image:width" content="192">
+<meta property="og:image:height" content="192">
+<meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="{{ $seoTitle }}">
 <meta name="twitter:description" content="{{ $seoDescription }}">
-<meta name="twitter:image" content="{{ asset('og-negozia.png') }}">
+<meta name="twitter:image" content="{{ asset('icon-192.png') }}">
 @php
     $structuredData = [
         '@context' => 'https://schema.org',
@@ -22,7 +22,7 @@
                 '@id' => route('home').'#organization',
                 'name' => 'NegoZia',
                 'url' => route('home'),
-                'logo' => asset('icon-512.png'),
+                'logo' => asset('icon-192.png'),
             ],
             [
                 '@type' => 'WebSite',
