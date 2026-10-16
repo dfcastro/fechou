@@ -134,6 +134,34 @@ class RegistrationAbuseProtectionTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_malformed_turnstile_token_is_rejected_without_server_error(): void
+    {
+        $this->enableTurnstile();
+
+        $this->post(route('register.store'), $this->registrationData([
+            'cf-turnstile-response' => ['malformed'],
+        ]))->assertSessionHasErrors('turnstile');
+
+        $this->assertSame(0, User::count());
+        Http::assertNothingSent();
+    }
+
+    public function test_cloudflare_unavailability_does_not_create_accounts(): void
+    {
+        $this->enableTurnstile();
+
+        Http::fake([
+            'https://challenges.cloudflare.com/turnstile/v0/siteverify' =>
+                Http::response(['success' => false], 503),
+        ]);
+
+        $this->post(route('register.store'), $this->registrationData([
+            'cf-turnstile-response' => 'unverifiable',
+        ]))->assertSessionHasErrors('turnstile');
+
+        $this->assertSame(0, User::count());
+    }
+
     public function test_partial_turnstile_configuration_fails_closed(): void
     {
         config()->set('services.turnstile.site_key', 'site-key-only');
