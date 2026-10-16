@@ -4,21 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>
-        @yield('title', 'Negozia — Encontre empresas e serviços')
-    </title>
-
-    <meta
-        name="description"
-        content="@yield(
+    @php
+        $seoTitle = trim($__env->yieldContent(
+            'title',
+            'NegoZia — Encontre empresas e prestadores de serviços'
+        ));
+        $seoDescription = trim($__env->yieldContent(
             'description',
-            'Encontre empresas e profissionais da sua cidade no Negozia.'
-        )"
-    >
-
-    <link rel="icon" href="/favicon.ico" sizes="any">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+            'Encontre profissionais e empresas por serviço e cidade no NegoZia.'
+        ));
+        $seoUrl = url()->current();
+    @endphp
+    <title>{{ $seoTitle }}</title>
+    @include('partials.public-seo', compact('seoTitle', 'seoDescription', 'seoUrl'))
+    @include('partials.brand-icons')
 
     @vite([
         'resources/css/app.css',
@@ -66,7 +65,7 @@
                         text-lg font-bold
                         tracking-tight
                     ">
-                    Negozia
+                    NegoZia
                 </span>
             </a>
 
@@ -180,12 +179,12 @@
                         text-zinc-700
                         dark:text-zinc-200
                     ">
-                    Negozia
+                    NegoZia
                 </span>
             </div>
 
             <p>
-                © {{ now()->year }} Negozia.
+                © {{ now()->year }} NegoZia.
                 Encontre. Negocie. Feche.
             </p>
         </div>

@@ -4,15 +4,14 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <title>Negozia — Propostas que viram negócios.</title>
-    <meta
-        name="description"
-        content="Crie propostas profissionais, compartilhe pelo WhatsApp e acompanhe visualizações, follow-ups, versões e respostas em um só lugar."
-    >
-
-    <link rel="icon" href="/favicon.ico" sizes="any">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    @php
+        $seoTitle = 'Sistema de Orçamentos e Propostas Comerciais | NegoZia';
+        $seoDescription = 'Crie orçamentos e propostas comerciais profissionais, envie por WhatsApp, acompanhe visualizações e organize clientes. Comece grátis no NegoZia.';
+        $seoUrl = route('for-businesses');
+    @endphp
+    <title>{{ $seoTitle }}</title>
+    @include('partials.public-seo', compact('seoTitle', 'seoDescription', 'seoUrl'))
+    @include('partials.brand-icons')
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @fluxAppearance
@@ -237,7 +236,7 @@
                                         Próximo passo claro
                                     </p>
                                     <p class="mt-1 text-xs text-emerald-700/80 dark:text-emerald-300/80">
-                                        O Negozia ajuda você a não deixar oportunidades esfriarem.
+                                        O NegoZia ajuda você a não deixar oportunidades esfriarem.
                                     </p>
                                 </div>
 
@@ -489,7 +488,7 @@
             </div>
 
             <p class="text-xs sm:text-right">
-                © {{ now()->year }} Negozia.
+                © {{ now()->year }} NegoZia.
                 Propostas que viram negócios.
             </p>
 
