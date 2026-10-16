@@ -81,6 +81,23 @@
                 viewable
             />
 
+            @if (filled(config('services.turnstile.site_key')))
+                <div class="space-y-2">
+                    <div
+                        class="cf-turnstile"
+                        data-sitekey="{{ config('services.turnstile.site_key') }}"
+                        data-theme="auto"
+                        data-action="registration"
+                    ></div>
+                </div>
+            @endif
+
+            @error('turnstile')
+                <p role="alert" class="text-sm text-red-600 dark:text-red-400">
+                    {{ $message }}
+                </p>
+            @enderror
+
             <flux:button
                 type="submit"
                 variant="primary"
@@ -113,4 +130,7 @@
         </div>
 
     </div>
+    @if (filled(config('services.turnstile.site_key')))
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    @endif
 </x-layouts::auth>
