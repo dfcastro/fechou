@@ -26,6 +26,7 @@
     ])
 
     @fluxAppearance
+    @include('partials.google-ads-head')
 </head>
 
 <body class="

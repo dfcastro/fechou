@@ -94,4 +94,9 @@ return [
         ),
     ],
 
+    'google_ads' => [
+        'id' => env('GOOGLE_ADS_ID'),
+        'registration_label' => env('GOOGLE_ADS_REGISTRATION_LABEL'),
+    ],
+
 ];
