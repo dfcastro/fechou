@@ -65,7 +65,10 @@ class CreateNewUser implements CreatesNewUsers
 
         // Only a completed registration should be eligible for an Ads conversion.
         // The onboarding page consumes this one-time token after the redirect.
-        session()->put('google_ads_registration_pending', (string) Str::uuid());
+        if (filled(config('services.google_ads.id'))
+            && filled(config('services.google_ads.registration_label'))) {
+            session()->put('google_ads_registration_pending', (string) Str::uuid());
+        }
 
         return $user;
     }
