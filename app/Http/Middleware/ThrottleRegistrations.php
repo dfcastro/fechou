@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\MarketingFunnelService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -45,6 +46,8 @@ class ThrottleRegistrations
         }
 
         if ($retryAfter > 0) {
+            app(MarketingFunnelService::class)->record('register_throttled');
+
             return response(
                 'Muitas tentativas de cadastro. Aguarde alguns minutos e tente novamente.',
                 429
