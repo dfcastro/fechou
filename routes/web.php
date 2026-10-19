@@ -12,6 +12,8 @@ use App\Http\Controllers\StripeCheckoutController;
 use App\Http\Controllers\QuotePdfController;
 use App\Http\Controllers\PublicMarketplaceController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Middleware\TrackMarketingFunnel;
+use App\Services\MarketingFunnelService;
 use Illuminate\Support\Facades\Route;
 
 
@@ -31,7 +33,13 @@ Route::get('sitemap.xml', SitemapController::class)->name('sitemap');
 Route::view(
     'para-empresas',
     'welcome'
-)->name('for-businesses');
+)->middleware(TrackMarketingFunnel::class)->name('for-businesses');
+
+Route::get('para-empresas/comecar', function (MarketingFunnelService $funnel) {
+    $funnel->record('cta_click');
+
+    return redirect()->route('register');
+})->middleware('throttle:60,1')->name('marketing.start');
 
 Route::get(
     'empresas',

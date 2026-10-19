@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\PlatformOverviewService;
+use App\Services\MarketingFunnelService;
 use App\Services\ProductMetricsService;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -36,6 +37,14 @@ new #[Title('Visão geral | Negozia')]
 
 
     #[Computed]
+    public function marketingFunnel(): array
+    {
+        [$start, $end] = $this->currentPeriod();
+
+        return app(MarketingFunnelService::class)->summary($start, $end);
+    }
+
+    #[Computed]
     public function platformOverview(): array
     {
         return app(
@@ -68,7 +77,8 @@ public function updatedPeriod(): void
         $this->metrics,
         $this->previousMetrics,
         $this->dailySeries,
-        $this->engagement
+        $this->engagement,
+        $this->marketingFunnel
     );
 }
 
@@ -512,6 +522,46 @@ public function engagementDetail(
     </div>
 
 
+
+    {{-- FUNIL DE CADASTRO: totais anonimos, nao visitantes unicos --}}
+    @php
+        $funnelTotals = $this->marketingFunnel;
+        $funnelCards = [
+            ['label' => 'Página de empresas', 'key' => 'landing_view', 'detail' => 'Carregamentos da página'],
+            ['label' => 'Cliques em criar conta', 'key' => 'cta_click', 'detail' => 'Cliques nos botões desta página'],
+            ['label' => 'Formulário aberto', 'key' => 'register_view', 'detail' => 'Carregamentos de /register'],
+            ['label' => 'Envios de cadastro', 'key' => 'register_submit', 'detail' => 'Tentativas de envio'],
+            ['label' => 'Cadastros concluídos', 'key' => 'registered', 'detail' => 'Contas criadas desde a implantação'],
+            ['label' => 'Dados inválidos', 'key' => 'register_invalid', 'detail' => 'Validação dos campos rejeitada'],
+            ['label' => 'Turnstile rejeitado', 'key' => 'turnstile_rejected', 'detail' => 'Verificação antibot não passou'],
+            ['label' => 'Limite atingido', 'key' => 'register_throttled', 'detail' => 'Tentativas bloqueadas (HTTP 429)'],
+        ];
+    @endphp
+
+    <section class="space-y-3" aria-labelledby="marketing-funnel-title">
+        <div>
+            <h2 id="marketing-funnel-title" class="font-semibold text-zinc-950 dark:text-white">
+                Funil de cadastros
+            </h2>
+            <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                Contagens diárias agregadas de todo o site, a partir da implantação desta melhoria.
+                Não são visitantes únicos nem cliques atribuídos exclusivamente ao Google Ads.
+                Sem armazenamento de IP, e-mail, senha ou identificadores no relatório.
+            </p>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            @foreach ($funnelCards as $card)
+                <div class="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                    <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">{{ $card['label'] }}</p>
+                    <p class="mt-2 text-3xl font-semibold tabular-nums text-zinc-950 dark:text-white">
+                        {{ number_format($funnelTotals[$card['key']] ?? 0, 0, ',', '.') }}
+                    </p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ $card['detail'] }}</p>
+                </div>
+            @endforeach
+        </div>
+    </section>
 
     {{-- ================================================= --}}
     {{-- ================================================= --}}

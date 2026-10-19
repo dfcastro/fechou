@@ -6,6 +6,7 @@ use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
 use App\Models\User;
 use App\Services\SubscriptionService;
+use App\Services\MarketingFunnelService;
 use App\Services\TurnstileVerifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -19,7 +20,8 @@ class CreateNewUser implements CreatesNewUsers
 
     public function __construct(
         private SubscriptionService $subscriptionService,
-        private TurnstileVerifier $turnstileVerifier
+        private TurnstileVerifier $turnstileVerifier,
+        private MarketingFunnelService $funnel
     ) {
     }
 
@@ -30,10 +32,16 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
-        Validator::make($input, [
-            ...$this->profileRules(),
-            'password' => $this->passwordRules(),
-        ])->validate();
+        try {
+            Validator::make($input, [
+                ...$this->profileRules(),
+                'password' => $this->passwordRules(),
+            ])->validate();
+        } catch (ValidationException $exception) {
+            $this->funnel->record('register_invalid');
+
+            throw $exception;
+        }
 
         // Reject malformed tokens instead of allowing array inputs to cause an error.
         $turnstileToken = $input['cf-turnstile-response'] ?? null;
@@ -43,6 +51,8 @@ class CreateNewUser implements CreatesNewUsers
             is_string($turnstileToken) ? $turnstileToken : null,
             request()->ip()
         )) {
+            $this->funnel->record('turnstile_rejected');
+
             throw ValidationException::withMessages([
                 'turnstile' => 'Não foi possível validar o cadastro. Tente novamente.',
             ]);
@@ -78,6 +88,8 @@ class CreateNewUser implements CreatesNewUsers
 
             return $user;
         });
+
+        $this->funnel->record('registered');
 
         // Only a completed registration should be eligible for an Ads conversion.
         // The onboarding page consumes this one-time token after the redirect.

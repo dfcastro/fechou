@@ -141,7 +141,7 @@ class PublicMarketplaceTest extends TestCase
             ->get(route('for-businesses'))
             ->assertOk()
             ->assertSee(
-                'Envie propostas profissionais'
+                'Crie orçamentos profissionais'
             )
             ->assertSee(
                 'Encontrar serviços'

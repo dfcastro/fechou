@@ -77,7 +77,7 @@
 
                     @if (Route::has('register'))
                         <a
-                            href="{{ route('register') }}"
+                            href="{{ route('marketing.start') }}"
                             class="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-emerald-500/20 transition hover:bg-emerald-600"
                         >
                             Começar grátis
@@ -101,13 +101,13 @@
                     </div>
 
                     <h1 class="mt-6 max-w-3xl text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-                        Envie propostas profissionais.
-                        <span class="text-emerald-500">Acompanhe cada etapa até a proposta virar negócio.</span>
+                        Crie orçamentos profissionais
+                        <span class="text-emerald-500">em minutos, sem planilhas.</span>
                     </h1>
 
                     <p class="mt-6 max-w-2xl text-base leading-7 text-zinc-600 sm:text-lg dark:text-zinc-300">
-                        Crie propostas, compartilhe pelo WhatsApp, saiba quando o cliente visualizou
-                        e organize seus follow-ups sem depender de planilhas ou mensagens perdidas.
+                        Organize seus clientes, envie propostas pelo WhatsApp e acompanhe
+                        quando forem visualizadas. Comece grátis, sem cartão.
                     </p>
 
                     <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -121,7 +121,7 @@
                             </a>
                         @else
                             <a
-                                href="{{ route('register') }}"
+                                href="{{ route('marketing.start') }}"
                                 class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-500/15 transition hover:bg-emerald-600"
                             >
                                 Criar conta grátis
@@ -381,7 +381,7 @@
                         </ul>
 
                         <a
-                            href="{{ route('register') }}"
+                            href="{{ route('marketing.start') }}"
                             class="mt-7 inline-flex w-full items-center justify-center rounded-xl border border-zinc-200 px-4 py-3 text-sm font-semibold transition hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                         >
                             Começar grátis
@@ -424,7 +424,7 @@
                         </ul>
 
                         <a
-                            href="{{ route('register') }}"
+                            href="{{ route('marketing.start') }}"
                             class="mt-7 inline-flex w-full items-center justify-center rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-violet-700 dark:bg-violet-500 dark:text-zinc-950 dark:hover:bg-violet-400"
                         >
                             Criar conta e conhecer o Pro
@@ -452,7 +452,7 @@
                         </p>
 
                         <a
-                            href="{{ route('register') }}"
+                            href="{{ route('marketing.start') }}"
                             class="mt-7 inline-flex items-center justify-center rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-400"
                         >
                             Começar grátis
