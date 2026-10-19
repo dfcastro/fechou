@@ -101,7 +101,7 @@ return [
     |
     */
 
-    'middleware' => ['web', \App\Http\Middleware\ThrottleRegistrations::class],
+    'middleware' => ['web', \App\Http\Middleware\TrackMarketingFunnel::class, \App\Http\Middleware\ThrottleRegistrations::class],
 
     /*
     |--------------------------------------------------------------------------
