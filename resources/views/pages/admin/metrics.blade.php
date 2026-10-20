@@ -45,6 +45,14 @@ new #[Title('Visão geral | Negozia')]
     }
 
     #[Computed]
+    public function marketingFunnelChannels(): array
+    {
+        [$start, $end] = $this->currentPeriod();
+
+        return app(MarketingFunnelService::class)->summaryByChannel($start, $end);
+    }
+
+    #[Computed]
     public function platformOverview(): array
     {
         return app(
@@ -78,7 +86,8 @@ public function updatedPeriod(): void
         $this->previousMetrics,
         $this->dailySeries,
         $this->engagement,
-        $this->marketingFunnel
+        $this->marketingFunnel,
+        $this->marketingFunnelChannels
     );
 }
 
@@ -560,6 +569,64 @@ public function engagementDetail(
                     <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ $card['detail'] }}</p>
                 </div>
             @endforeach
+        </div>
+    </section>
+
+    @php
+        $channelFunnel = $this->marketingFunnelChannels;
+        $channelRows = [
+            ['label' => 'Google Ads identificado', 'key' => 'google_ads'],
+            ['label' => 'Origem não identificada', 'key' => 'unattributed'],
+        ];
+        $channelColumns = [
+            ['label' => 'Página', 'key' => 'landing_view'],
+            ['label' => 'Botão', 'key' => 'cta_click'],
+            ['label' => 'Cadastro aberto', 'key' => 'register_view'],
+            ['label' => 'Envios', 'key' => 'register_submit'],
+            ['label' => 'Contas criadas', 'key' => 'registered'],
+        ];
+    @endphp
+
+    <section class="space-y-3" aria-labelledby="channel-funnel-title">
+        <div>
+            <h2 id="channel-funnel-title" class="font-semibold text-zinc-950 dark:text-white">
+                Origem dos acessos ao cadastro
+            </h2>
+            <p class="mt-1 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                Somente contagens novas a partir da implantação desta separação.
+                Google Ads identificado por gclid, gbraid, wbraid ou parâmetros UTM de pesquisa paga;
+                não é uma atribuição verificada nem corresponde necessariamente aos cliques do Google Ads.
+                Origem não identificada pode incluir acesso direto, orgânico, robôs e outras fontes.
+                Não são visitantes únicos. Visitas de administradores autenticados são excluídas;
+                testes anônimos em janela privada não podem ser identificados como internos.
+            </p>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+            <table class="w-full min-w-[640px] text-left text-sm">
+                <thead class="bg-zinc-50 text-xs text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 font-medium">Origem</th>
+                        @foreach ($channelColumns as $column)
+                            <th scope="col" class="px-4 py-3 text-right font-medium">{{ $column['label'] }}</th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+                    @foreach ($channelRows as $row)
+                        <tr class="bg-white dark:bg-zinc-950">
+                            <th scope="row" class="px-4 py-4 font-medium text-zinc-950 dark:text-white">
+                                {{ $row['label'] }}
+                            </th>
+                            @foreach ($channelColumns as $column)
+                                <td class="px-4 py-4 text-right tabular-nums text-zinc-800 dark:text-zinc-200">
+                                    {{ number_format($channelFunnel[$row['key']][$column['key']] ?? 0, 0, ',', '.') }}
+                                </td>
+                            @endforeach
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
     </section>
 
