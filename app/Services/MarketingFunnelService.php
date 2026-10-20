@@ -87,6 +87,12 @@ class MarketingFunnelService
      */
     private function channelFor(Request $request): string
     {
+        // Command-line jobs and direct service invocations have no HTTP
+        // session. Their counters are still valid, but unattributed.
+        if (! $request->hasSession()) {
+            return 'unattributed';
+        }
+
         $hasGoogleClickMarker = false;
 
         foreach (['gclid', 'gbraid', 'wbraid'] as $parameter) {
