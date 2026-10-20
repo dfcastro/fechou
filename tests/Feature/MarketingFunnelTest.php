@@ -170,4 +170,118 @@ class MarketingFunnelTest extends TestCase
             ->assertSee('Funil de cadastros')
             ->assertSee('Turnstile rejeitado');
     }
+    private function sourceTotal(string $source, string $event): int
+    {
+        return (int) DB::table('marketing_funnel_channel_daily_counts')
+            ->where('day', now()->toDateString())
+            ->where('source', $source)
+            ->where('event', $event)
+            ->value('total');
+    }
+
+    public function test_google_ads_marker_is_classified_without_storing_click_id(): void
+    {
+        $this->get(route('for-businesses', [
+            'gclid' => 'secret-google-click-id',
+            'email' => 'not-stored@example.com',
+        ]))->assertOk();
+
+        $this->get(route('marketing.start'))
+            ->assertRedirect(route('register'));
+
+        $this->get(route('register'))->assertOk();
+
+        $this->assertSame(1, $this->sourceTotal('google_ads', 'landing_view'));
+        $this->assertSame(1, $this->sourceTotal('google_ads', 'cta_click'));
+        $this->assertSame(1, $this->sourceTotal('google_ads', 'register_view'));
+        $this->assertSame(0, $this->sourceTotal('unattributed', 'landing_view'));
+
+        $this->assertSame(
+            ['day', 'source', 'event', 'total'],
+            Schema::getColumnListing('marketing_funnel_channel_daily_counts')
+        );
+
+        $this->assertSame(
+            ['source' => 'google_ads', 'event' => 'landing_view'],
+            (array) DB::table('marketing_funnel_channel_daily_counts')
+                ->where('event', 'landing_view')
+                ->first(['source', 'event'])
+        );
+    }
+
+    public function test_paid_google_utm_is_classified_without_storing_url_values(): void
+    {
+        $this->get(route('for-businesses', [
+            'utm_source' => 'google',
+            'utm_medium' => 'cpc',
+            'utm_campaign' => 'campaign-name-must-not-be-stored',
+        ]))->assertOk();
+
+        $this->assertSame(1, $this->sourceTotal('google_ads', 'landing_view'));
+        $this->assertSame(0, $this->sourceTotal('unattributed', 'landing_view'));
+    }
+
+    public function test_nonpaid_utm_does_not_count_as_google_ads(): void
+    {
+        $this->get(route('for-businesses', [
+            'utm_source' => 'google',
+            'utm_medium' => 'organic',
+        ]))->assertOk();
+
+        $this->assertSame(1, $this->sourceTotal('unattributed', 'landing_view'));
+    }
+
+    public function test_expired_session_source_returns_to_unattributed(): void
+    {
+        $this->get(route('for-businesses', [
+            'gclid' => 'test-ads-source',
+        ]))->assertOk();
+
+        $this->withSession([
+            'marketing_funnel_source' => [
+                'source' => 'google_ads',
+                'expires_at' => now()->subMinute()->getTimestamp(),
+            ],
+        ])->get(route('register'))->assertOk();
+
+        $this->assertSame(1, $this->sourceTotal('google_ads', 'landing_view'));
+        $this->assertSame(1, $this->sourceTotal('unattributed', 'register_view'));
+    }
+
+    public function test_signed_in_admins_are_excluded_from_all_new_counters(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        $this->actingAs($admin)
+            ->get(route('for-businesses', ['gclid' => 'admin-test']))
+            ->assertOk();
+
+        $this->get(route('marketing.start'))
+            ->assertRedirect(route('register'));
+
+        $this->assertSame(0, $this->total('landing_view'));
+        $this->assertSame(0, $this->total('cta_click'));
+        $this->assertSame(0, $this->sourceTotal('google_ads', 'landing_view'));
+        $this->assertSame(0, $this->sourceTotal('unattributed', 'cta_click'));
+    }
+
+    public function test_channel_breakdown_respects_period_without_rewriting_older_counts(): void
+    {
+        $service = app(MarketingFunnelService::class);
+
+        $this->get(route('for-businesses'))->assertOk();
+
+        $recent = $service->summaryByChannel(
+            now()->startOfDay(),
+            now()->endOfDay()
+        );
+
+        $this->assertSame(1, $recent['unattributed']['landing_view']);
+        $this->assertSame(0, $recent['google_ads']['landing_view']);
+        $this->assertSame(1, $service->summary(
+            now()->startOfDay(),
+            now()->endOfDay()
+        )['landing_view']);
+    }
+
 }
